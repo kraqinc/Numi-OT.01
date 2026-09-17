@@ -1,0 +1,17 @@
+torch
+transformers
+tokenizers
+safetensors
+accelerate
+datasets
+peft
+sentencepiece
+pyyaml
+numpy
+scipy
+tqdm
+einops
+huggingface_hub
+fastapi
+uvicorn
+pydantic

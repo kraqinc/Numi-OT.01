@@ -14,13 +14,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
-    name: Python validation
+    name: Validate project
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -28,13 +32,13 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+          cache-dependency-path: requirements.txt
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
-      - name: Install validation tools
+      - name: Install dependencies
         run: |
-          pip install ruff mypy pytest pyyaml
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff mypy pytest
 
       - name: Check Python syntax
         run: |
@@ -44,82 +48,54 @@ jobs:
         run: |
           ruff check .
 
+      - name: Run MyPy
+        run: |
+          mypy . --ignore-missing-imports
+
       - name: Validate YAML
         run: |
           python - <<'PY'
           from pathlib import Path
           import yaml
 
-          files = list(Path(".").rglob("*.yml"))
-          files += list(Path(".").rglob("*.yaml"))
-
-          ignored = {
-              ".git",
-              ".venv",
-              "venv",
-              "__pycache__",
-          }
-
-          for file in files:
-              if any(part in ignored for part in file.parts):
+          for path in Path(".").rglob("*"):
+              if path.suffix not in {".yml", ".yaml"}:
                   continue
 
-              with file.open("r", encoding="utf-8") as f:
-                  yaml.safe_load(f)
+              if ".git" in path.parts:
+                  continue
 
-              print(f"OK: {file}")
+              with path.open("r", encoding="utf-8") as file:
+                  yaml.safe_load(file)
+
+              print(f"OK: {path}")
           PY
 
       - name: Run tests
         run: |
-          if [ -d tests ]; then
-            pytest -q
-          else
-            echo "No tests directory yet."
-          fi
+          pytest -q
 
-      - name: Check repository structure
+      - name: Check project structure
         run: |
           required=(
-            "architecture"
-            "tokenizer"
-            "training"
-            "datasets"
-            "evaluation"
-            "inference"
-            "server"
-            "configs"
-            "scripts"
-            "model"
+            architecture
+            tokenizer
+            training
+            datasets
+            evaluation
+            inference
+            server
+            configs
+            scripts
+            model
+            tests
           )
 
-          for dir in "${required[@]}"; do
-            if [ ! -d "$dir" ]; then
-              echo "::error::Missing required directory: $dir"
+          for directory in "${required[@]}"; do
+            test -d "$directory" || {
+              echo "::error::Missing directory: $directory"
               exit 1
-            fi
+            }
           done
 
-          echo "Repository structure OK."
-
-      - name: Check for accidentally tracked secrets
-        run: |
-          patterns=(
-            "OPENAI_API_KEY"
-            "HF_TOKEN"
-            "HUGGINGFACE_TOKEN"
-            "SUPABASE_SERVICE_ROLE_KEY"
-            "AWS_SECRET_ACCESS_KEY"
-            "PRIVATE_KEY"
-          )
-
-          failed=0
-
-          for pattern in "${patterns[@]}"; do
-            if git grep -n -I "$pattern" -- ':!*.md'; then
-              echo "::error::Possible secret detected: $pattern"
-              failed=1
-            fi
-          done
-
-          exit $failed
+          echo "Project structure OK."

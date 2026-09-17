@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "numi-ot-01"
+version = "0.1.0"
+description = "Numi-OT.01 conversational AI model for Numination"
+requires-python = ">=3.12"
+
+[tool.setuptools]
+packages = [
+    "architecture",
+    "architecture.modules",
+    "tokenizer",
+    "training",
+    "evaluation",
+    "inference",
+    "server",
+    "model",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

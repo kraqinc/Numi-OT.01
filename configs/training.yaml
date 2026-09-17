@@ -1,0 +1,12 @@
+training:
+  seed: 42
+  epochs: 1
+  batch_size: 1
+  gradient_accumulation_steps: 1
+  learning_rate: 0.00001
+  weight_decay: 0.1
+  warmup_ratio: 0.03
+
+checkpoint:
+  save_steps: 500
+  output_dir: "checkpoints"
