@@ -1,0 +1,125 @@
+name: Validate Numi-OT.01
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Python validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install validation tools
+        run: |
+          pip install ruff mypy pytest pyyaml
+
+      - name: Check Python syntax
+        run: |
+          python -m compileall -q .
+
+      - name: Run Ruff
+        run: |
+          ruff check .
+
+      - name: Validate YAML
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          files = list(Path(".").rglob("*.yml"))
+          files += list(Path(".").rglob("*.yaml"))
+
+          ignored = {
+              ".git",
+              ".venv",
+              "venv",
+              "__pycache__",
+          }
+
+          for file in files:
+              if any(part in ignored for part in file.parts):
+                  continue
+
+              with file.open("r", encoding="utf-8") as f:
+                  yaml.safe_load(f)
+
+              print(f"OK: {file}")
+          PY
+
+      - name: Run tests
+        run: |
+          if [ -d tests ]; then
+            pytest -q
+          else
+            echo "No tests directory yet."
+          fi
+
+      - name: Check repository structure
+        run: |
+          required=(
+            "architecture"
+            "tokenizer"
+            "training"
+            "datasets"
+            "evaluation"
+            "inference"
+            "server"
+            "configs"
+            "scripts"
+            "model"
+          )
+
+          for dir in "${required[@]}"; do
+            if [ ! -d "$dir" ]; then
+              echo "::error::Missing required directory: $dir"
+              exit 1
+            fi
+          done
+
+          echo "Repository structure OK."
+
+      - name: Check for accidentally tracked secrets
+        run: |
+          patterns=(
+            "OPENAI_API_KEY"
+            "HF_TOKEN"
+            "HUGGINGFACE_TOKEN"
+            "SUPABASE_SERVICE_ROLE_KEY"
+            "AWS_SECRET_ACCESS_KEY"
+            "PRIVATE_KEY"
+          )
+
+          failed=0
+
+          for pattern in "${patterns[@]}"; do
+            if git grep -n -I "$pattern" -- ':!*.md'; then
+              echo "::error::Possible secret detected: $pattern"
+              failed=1
+            fi
+          done
+
+          exit $failed
