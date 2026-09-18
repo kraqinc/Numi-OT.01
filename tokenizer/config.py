@@ -1,15 +1,29 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
 class NumiTokenizerConfig:
     name: str = "Numi-OT.01"
+    version: str = "0.1.0"
+
     base_tokenizer: str = "Qwen/Qwen3-30B-A3B-Base"
     revision: str = "main"
 
     bos_token: str = "<|numi_bos|>"
     eos_token: str = "<|numi_eos|>"
     pad_token: str = "<|numi_pad|>"
+
     user_token: str = "<|numi_user|>"
     assistant_token: str = "<|numi_assistant|>"
     system_token: str = "<|numi_system|>"
+
+    tool_token: str = "<|numi_tool|>"
+    tool_result_token: str = "<|numi_tool_result|>"
+
+    model_max_length: int = 32768
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
