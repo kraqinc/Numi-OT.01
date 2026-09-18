@@ -1,0 +1,21 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+env/
+
+# Model artifacts
+checkpoints/
+*.safetensors
+*.pt
+*.pth
+*.bin
+
+# Local datasets
+data/raw/
+data/processed/
