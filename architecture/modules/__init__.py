@@ -1,22 +1,20 @@
-from .attention import NumiAttention
-from .embeddings import NumiLMHead, NumiTokenEmbedding
-from .mlp import NumiMLP
-from .moe import NumiMoE
-from .normalization import NumiRMSNorm
-from .positional_encoding import (
-    apply_rope,
-    build_rope_cache,
-)
-from .transformer_block import NumiTransformerBlock
+from ..attention.attention import NumiAttention, repeat_kv
+from ..blocks.mlp import NumiMLP
+from ..blocks.transformer import NumiTransformerBlock
+from ..embeddings.token import NumiLMHead, NumiTokenEmbedding
+from ..moe.moe import NumiMoE
+from ..normalization.rmsnorm import NumiRMSNorm
+from ..positional.rope import apply_rope, build_rope_cache
 
 __all__ = [
     "NumiAttention",
-    "NumiLMHead",
+    "repeat_kv",
     "NumiMLP",
+    "NumiTransformerBlock",
+    "NumiTokenEmbedding",
+    "NumiLMHead",
     "NumiMoE",
     "NumiRMSNorm",
-    "NumiTokenEmbedding",
-    "NumiTransformerBlock",
-    "apply_rope",
     "build_rope_cache",
+    "apply_rope",
 ]

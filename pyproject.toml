@@ -8,16 +8,19 @@ version = "0.1.0"
 description = "Numi-OT.01 conversational AI model for Numination"
 requires-python = ">=3.12"
 
-[tool.setuptools]
-packages = [
-    "architecture",
-    "architecture.modules",
-    "tokenizer",
-    "training",
-    "evaluation",
-    "inference",
-    "server",
-    "model",
+[tool.setuptools.packages.find]
+include = [
+    "architecture*",
+    "tokenizer*",
+    "training*",
+    "evaluation*",
+    "inference*",
+    "model*",
+    "data*",
+    "reasoning*",
+    "knowledge*",
+    "serving*",
+    "tools*",
 ]
 
 [tool.ruff]

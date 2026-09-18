@@ -6,9 +6,9 @@ from typing import Any
 
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
-from .chat_template import NumiChatTemplate, NumiMessage
+from .templates.chat import NumiChatTemplate, NumiMessage
 from .config import NumiTokenizerConfig
-from .special_tokens import NumiSpecialTokens
+from .special_tokens.tokens import NumiSpecialTokens
 
 
 class NumiTokenizer:
