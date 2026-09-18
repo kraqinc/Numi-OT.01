@@ -1,4 +1,3 @@
- // TOTO CREAMPIE
 torch==2.14.0
 transformers==5.17.0
 accelerate>=1.10.0
