@@ -1,0 +1,91 @@
+version: "1.0"
+name: "Numi Knowledge Universe"
+
+target_date: "2026-09-18"
+
+strategy:
+  training:
+    purpose: >
+      Teach general language understanding, reasoning, coding,
+      mathematics, science, conversation, instruction following,
+      and Numi-specific behavior.
+
+  retrieval:
+    purpose: >
+      Provide current, source-backed, changing, or time-sensitive information
+      without requiring a full model retraining.
+
+  priority:
+    - trusted_primary_sources
+    - curated_open_datasets
+    - high_quality_web
+    - specialized_domains
+
+sources:
+
+  web:
+    provider: "Common Crawl"
+    current_crawl: "CC-MAIN-2026-34"
+    mode: "retrieval"
+    refresh: "periodic"
+    priority: 3
+
+  scholarly:
+    provider: "OpenAlex"
+    snapshot: "2026-06"
+    mode: "retrieval"
+    refresh: "incremental"
+    priority: 2
+
+  general_web_history:
+    provider: "HuggingFaceFW/fineweb"
+    mode: "training"
+    license: "ODC-By-1.0"
+    max_source_date: "2024-04"
+    priority: 4
+
+  code:
+    provider: "BigCode StarCoderData"
+    mode: "training"
+    priority: 2
+    note: >
+      Source-code licensing and attribution requirements must be preserved.
+
+  encyclopedia:
+    provider: "Wikimedia projects"
+    mode: "training+retrieval"
+    priority: 2
+
+  first_party:
+    provider: "official documentation"
+    mode: "retrieval"
+    priority: 1
+
+  numination:
+    provider: "Numination internal knowledge"
+    mode: "training+retrieval"
+    priority: 1
+
+filtering:
+  deduplicate: true
+  language_filter: true
+  pii_filter: true
+  malware_filter: true
+  spam_filter: true
+  low_quality_filter: true
+  prompt_injection_filter: true
+
+provenance:
+  required: true
+
+  fields:
+    - source
+    - url
+    - retrieved_at
+    - published_at
+    - license
+    - document_hash
+
+evaluation:
+  require_source_traceability: true
+  require_currentness_check: true

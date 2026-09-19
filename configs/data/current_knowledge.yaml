@@ -1,0 +1,49 @@
+version: "1.0"
+
+target_date: "2026-09-18"
+
+sources:
+
+  common_crawl:
+    enabled: true
+    provider: "Common Crawl"
+    crawl: "CC-MAIN-2026-34"
+    mode: "retrieval"
+    provenance_required: true
+
+  openalex:
+    enabled: true
+    provider: "OpenAlex"
+    snapshot: "2026-06"
+    mode: "retrieval"
+    provenance_required: true
+
+  official_documentation:
+    enabled: true
+    mode: "retrieval"
+    priority: 1
+
+  numination:
+    enabled: true
+    mode: "retrieval"
+    priority: 1
+
+policy:
+
+  prefer_primary_sources: true
+
+  freshness:
+    current_events: 1d
+    technical_documentation: 7d
+    general_information: 30d
+
+  provenance:
+    required: true
+
+    fields:
+      - source
+      - url
+      - published_at
+      - retrieved_at
+      - license
+      - document_hash 

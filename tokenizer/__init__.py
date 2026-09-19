@@ -1,7 +1,7 @@
 from .templates.chat import NumiChatTemplate, NumiMessage
 from .config import NumiTokenizerConfig
 from .special_tokens.tokens import NumiSpecialTokens
-from .system_prompt import DEFAULT_NUMI_SYSTEM_PROMPT, NumiSystemPrompt
+from .templates.system import DEFAULT_NUMI_SYSTEM_PROMPT, NumiSystemPrompt
 from .tokenizer import NumiTokenizer
 
 __all__ = [

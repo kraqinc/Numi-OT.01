@@ -3,7 +3,9 @@ from __future__ import annotations
 import torch
 from torch import Tensor, nn
 
-from ..blocks.mlp import NumiMLP
+from .experts import NumiExpertBank
+from .load_balance import load_balance_loss
+from .router import NumiRouter
 
 
 class NumiMoE(nn.Module):
@@ -12,88 +14,66 @@ class NumiMoE(nn.Module):
         hidden_size: int,
         intermediate_size: int,
         num_experts: int,
-        num_experts_per_tok: int,
+        top_k: int,
+        router_jitter: float = 0.0,
     ) -> None:
         super().__init__()
 
-        if num_experts_per_tok > num_experts:
-            raise ValueError(
-                "num_experts_per_tok cannot exceed num_experts."
-            )
-
-        self.hidden_size = hidden_size
         self.num_experts = num_experts
-        self.num_experts_per_tok = num_experts_per_tok
+        self.top_k = top_k
 
-        self.router = nn.Linear(
+        self.router = NumiRouter(
             hidden_size,
             num_experts,
-            bias=False,
+            top_k,
+            router_jitter,
         )
 
-        self.experts = nn.ModuleList(
-            [
-                NumiMLP(
-                    hidden_size=hidden_size,
-                    intermediate_size=intermediate_size,
-                )
-                for _ in range(num_experts)
-            ]
+        self.experts = NumiExpertBank(
+            hidden_size,
+            intermediate_size,
+            num_experts,
         )
 
-    def forward(
-        self,
-        hidden_states: Tensor,
-    ) -> Tensor:
+        self.last_aux_loss = torch.tensor(0.0)
+
+    def forward(self, hidden_states: Tensor) -> Tensor:
         original_shape = hidden_states.shape
+        flat = hidden_states.reshape(-1, original_shape[-1])
 
-        flat_states = hidden_states.reshape(
-            -1,
-            self.hidden_size,
-        )
+        weights, indices = self.router(flat)
 
-        router_logits = self.router(flat_states)
+        output = torch.zeros_like(flat)
 
-        routing_weights = torch.softmax(
-            router_logits,
-            dim=-1,
-            dtype=torch.float32,
-        )
+        for expert_id in range(self.num_experts):
+            token_positions, top_positions = torch.where(indices == expert_id)
 
-        top_weights, top_indices = torch.topk(
-            routing_weights,
-            self.num_experts_per_tok,
-            dim=-1,
-        )
-
-        top_weights = top_weights / top_weights.sum(
-            dim=-1,
-            keepdim=True,
-        )
-
-        output = torch.zeros_like(flat_states)
-
-        for expert_index, expert in enumerate(self.experts):
-            token_indices, slot_indices = torch.where(
-                top_indices == expert_index
-            )
-
-            if token_indices.numel() == 0:
+            if token_positions.numel() == 0:
                 continue
 
-            expert_input = flat_states[token_indices]
+            selected = flat[token_positions]
+            expert_output = self.experts.forward_expert(
+                expert_id,
+                selected,
+            )
 
-            expert_output = expert(expert_input)
-
-            weights = top_weights[
-                token_indices,
-                slot_indices,
-            ].unsqueeze(-1)
+            expert_weights = weights[
+                token_positions,
+                top_positions,
+            ]
 
             output.index_add_(
                 0,
-                token_indices,
-                expert_output * weights,
+                token_positions,
+                expert_output * expert_weights.unsqueeze(-1),
             )
+
+        router_probs = self.router.gate(flat).softmax(dim=-1)
+
+        self.last_aux_loss = load_balance_loss(
+            router_probs,
+            indices,
+            self.num_experts,
+        )
 
         return output.reshape(original_shape)
