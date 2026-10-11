@@ -2,18 +2,25 @@ from __future__ import annotations
 
 from torch import Tensor, nn
 
-from .attention import NumiAttention
-from .moe import NumiMoE
-from ..normalization.rmsnorm import NumiRMSNorm
+from architecture.attention.attention import NumiAttention
+from architecture.moe.moe import NumiMoE
+from architecture.normalization.rmsnorm import NumiRMSNorm
 
 
 class NumiTransformerBlock(nn.Module):
+    """
+    Single transformer block for Numi-OT.01.
+
+    Structure (same as Qwen2-MoE / Mixtral style):
+        x → RMSNorm → Attention → residual
+          → RMSNorm → MoE        → residual
+    """
+
     def __init__(
         self,
         hidden_size: int,
         num_attention_heads: int,
         num_key_value_heads: int,
-        intermediate_size: int,
         moe_intermediate_size: int,
         num_experts: int,
         num_experts_per_tok: int,
@@ -46,7 +53,7 @@ class NumiTransformerBlock(nn.Module):
             hidden_size=hidden_size,
             intermediate_size=moe_intermediate_size,
             num_experts=num_experts,
-            num_experts_per_tok=num_experts_per_tok,
+            top_k=num_experts_per_tok,
         )
 
     def forward(
@@ -54,29 +61,24 @@ class NumiTransformerBlock(nn.Module):
         hidden_states: Tensor,
         *,
         attention_mask: Tensor | None = None,
+        position_offset: int = 0,
     ) -> Tensor:
         residual = hidden_states
 
-        hidden_states = self.input_layernorm(
-            hidden_states
-        )
+        hidden_states = self.input_layernorm(hidden_states)
 
         hidden_states = self.self_attn(
             hidden_states,
             attention_mask=attention_mask,
+            position_offset=position_offset,
         )
 
         hidden_states = residual + hidden_states
 
         residual = hidden_states
 
-        hidden_states = self.post_attention_layernorm(
-            hidden_states
-        )
-
-        hidden_states = self.moe(
-            hidden_states
-        )
+        hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = self.moe(hidden_states)
 
         hidden_states = residual + hidden_states
 
