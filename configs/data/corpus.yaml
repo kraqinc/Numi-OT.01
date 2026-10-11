@@ -1,8 +1,6 @@
-version: "1.0"
-
+version: "1.1"
 name: "Numi Pretraining Corpus"
-
-target_date: "2026-09-18"
+target_date: "2026-10-10"
 
 output:
   directory: "data/artifacts/corpus"
@@ -23,9 +21,20 @@ processing:
 
   quality:
     enabled: true
+    min_score: 0.6
+
+  language:
+    allowed:
+      - "en"
+      - "es"
+      - "pt"
+      - "fr"
+      - "de"
+      - "it"
 
 sources:
 
+  # High-quality web crawl (general knowledge)
   - id: "fineweb"
     enabled: true
     type: "huggingface"
@@ -33,10 +42,12 @@ sources:
     name: "CC-MAIN-2024-51"
     split: "train"
     text_field: "text"
-    weight: 0.45
+    weight: 0.40
     mode: "cpt"
     license: "ODC-By-1.0"
+    description: "Large-scale cleaned web data for general language understanding."
 
+  # Educational / high-quality filtered web
   - id: "fineweb_edu"
     enabled: true
     type: "huggingface"
@@ -44,10 +55,12 @@ sources:
     name: "sample-10BT"
     split: "train"
     text_field: "text"
-    weight: 0.30
+    weight: 0.25
     mode: "cpt"
     license: "ODC-By-1.0"
+    description: "Educational subset of FineWeb. Strong for reasoning and explanations."
 
+  # Code (optional, requires access)
   - id: "starcoder"
     enabled: false
     type: "huggingface"
@@ -59,12 +72,28 @@ sources:
     mode: "cpt"
     license: "source-dependent"
     requires_access_agreement: true
+    description: "Source code for programming ability."
 
-  - id: "numi_local"
+  # Wikipedia-style knowledge
+  - id: "wikipedia"
+    enabled: true
+    type: "huggingface"
+    dataset: "wikimedia/wikipedia"
+    name: "20231101.en"
+    split: "train"
+    text_field: "text"
+    weight: 0.10
+    mode: "cpt"
+    license: "CC-BY-SA"
+    description: "Structured encyclopedia knowledge."
+
+  # Numi first-party conversation seed (SFT)
+  - id: "numi_conversations"
     enabled: true
     type: "jsonl"
     path: "datasets/2026/numi_conversation_seed.jsonl"
     text_field: "messages"
     weight: 0.10
     mode: "sft"
-    license: "Numination" 
+    license: "Numination"
+    description: "High-quality multi-turn conversations that teach Numi identity and style."

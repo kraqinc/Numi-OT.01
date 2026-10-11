@@ -4,12 +4,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 
-_ALLOWED_ROLES = {
-    "system",
-    "user",
-    "assistant",
-    "tool",
-}
+_ALLOWED_ROLES = {"system", "user", "assistant", "tool"}
 
 
 @dataclass(frozen=True)
@@ -23,12 +18,30 @@ class NumiMessage:
                 f"Invalid role '{self.role}'. "
                 f"Expected one of: {sorted(_ALLOWED_ROLES)}"
             )
-
         if not isinstance(self.content, str):
             raise TypeError("Message content must be a string.")
 
 
 class NumiChatTemplate:
+    """
+    Official chat template for Numi-OT.01.
+
+    Format (one message per block):
+
+        <|numi_bos|>
+        <|numi_system|>
+        {system content}
+        <|numi_eos|>
+        <|numi_user|>
+        {user content}
+        <|numi_eos|>
+        <|numi_assistant|>
+        {assistant content}
+        <|numi_eos|>
+        ...
+        <|numi_assistant|>          ← generation prompt (optional)
+    """
+
     def __init__(
         self,
         *,
@@ -72,25 +85,17 @@ class NumiChatTemplate:
                 continue
 
             if not isinstance(message, Mapping):
-                raise TypeError(
-                    "Each message must be a mapping or NumiMessage."
-                )
+                raise TypeError("Each message must be a mapping or NumiMessage.")
 
             role = message.get("role")
             content = message.get("content")
 
             if not isinstance(role, str):
                 raise TypeError("Message role must be a string.")
-
             if not isinstance(content, str):
                 raise TypeError("Message content must be a string.")
 
-            normalized.append(
-                NumiMessage(
-                    role=role,
-                    content=content,
-                )
-            )
+            normalized.append(NumiMessage(role=role, content=content))
 
         if not normalized:
             raise ValueError("Conversation must contain at least one message.")
@@ -112,10 +117,8 @@ class NumiChatTemplate:
             content = message.content.strip()
 
             parts.append(role_token)
-
             if content:
                 parts.append(content)
-
             parts.append(self.eos_token)
 
         if add_generation_prompt:

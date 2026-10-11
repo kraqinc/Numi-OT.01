@@ -1,14 +1,13 @@
-version: "1.0"
+version: "1.1"
 name: "Numi Knowledge Universe"
-
-target_date: "2026-09-18"
+target_date: "2026-10-10"
 
 strategy:
   training:
     purpose: >
       Teach general language understanding, reasoning, coding,
       mathematics, science, conversation, instruction following,
-      and Numi-specific behavior.
+      and Numi-specific behavior and personality.
 
   retrieval:
     purpose: >
@@ -29,6 +28,7 @@ sources:
     mode: "retrieval"
     refresh: "periodic"
     priority: 3
+    notes: "Used only for retrieval, not for pretraining weights."
 
   scholarly:
     provider: "OpenAlex"
@@ -65,6 +65,9 @@ sources:
     provider: "Numination internal knowledge"
     mode: "training+retrieval"
     priority: 1
+    description: >
+      Product knowledge, personality examples, tool usage patterns,
+      and conversation style that define Numi.
 
 filtering:
   deduplicate: true
@@ -77,7 +80,6 @@ filtering:
 
 provenance:
   required: true
-
   fields:
     - source
     - url

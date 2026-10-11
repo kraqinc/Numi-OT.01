@@ -6,17 +6,20 @@ from typing import Any
 
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
-from .templates.chat import NumiChatTemplate, NumiMessage
 from .config import NumiTokenizerConfig
 from .special_tokens.tokens import NumiSpecialTokens
+from .templates.chat import NumiChatTemplate, NumiMessage
 
 
 class NumiTokenizer:
     """
-    High-level tokenizer wrapper for Numi-OT.01.
+    Official tokenizer interface for Numi-OT.01.
 
-    The underlying tokenizer starts from the Qwen tokenizer and is extended
-    with Numi-specific conversation tokens.
+    Design goals:
+    - Numi owns its special tokens and chat format.
+    - Can be initialized from any HuggingFace tokenizer (optional).
+    - Can later load a fully trained Numi BPE/SentencePiece artifact.
+    - Zero hard dependency on any specific external model family.
     """
 
     def __init__(
@@ -32,6 +35,10 @@ class NumiTokenizer:
             self.special_tokens
         )
 
+    # ------------------------------------------------------------------
+    # Construction
+    # ------------------------------------------------------------------
+
     @classmethod
     def from_pretrained(
         cls,
@@ -40,26 +47,32 @@ class NumiTokenizer:
         revision: str = "main",
         trust_remote_code: bool = False,
     ) -> NumiTokenizer:
-        base_name = model_name or NumiTokenizerConfig().base_tokenizer
+        """
+        Load a base tokenizer (any HF model) and extend it with Numi tokens.
+
+        If model_name is None, the caller must provide a trained Numi
+        tokenizer artifact later via from_tokenizer() or load().
+        """
+        if model_name is None:
+            raise ValueError(
+                "model_name is required for from_pretrained(). "
+                "Pass a HuggingFace tokenizer name or use from_tokenizer() "
+                "with an already loaded tokenizer."
+            )
 
         config = NumiTokenizerConfig(
-            base_tokenizer=base_name,
+            base_tokenizer=model_name,
             revision=revision,
         )
 
         tokenizer = AutoTokenizer.from_pretrained(
-            config.base_tokenizer,
-            revision=config.revision,
+            model_name,
+            revision=revision,
             trust_remote_code=trust_remote_code,
         )
 
-        instance = cls(
-            config=config,
-            tokenizer=tokenizer,
-        )
-
+        instance = cls(config=config, tokenizer=tokenizer)
         instance.add_special_tokens()
-
         return instance
 
     @classmethod
@@ -68,23 +81,21 @@ class NumiTokenizer:
         tokenizer: PreTrainedTokenizerBase,
         config: NumiTokenizerConfig | None = None,
     ) -> NumiTokenizer:
-        instance = cls(
-            config=config,
-            tokenizer=tokenizer,
-        )
-
+        instance = cls(config=config, tokenizer=tokenizer)
         instance.add_special_tokens()
-
         return instance
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
 
     @property
     def tokenizer(self) -> PreTrainedTokenizerBase:
         if self._tokenizer is None:
             raise RuntimeError(
-                "NumiTokenizer is not initialized with a tokenizer. "
-                "Use NumiTokenizer.from_pretrained() or from_tokenizer()."
+                "NumiTokenizer is not initialized. "
+                "Use from_pretrained() or from_tokenizer()."
             )
-
         return self._tokenizer
 
     @property
@@ -93,11 +104,15 @@ class NumiTokenizer:
 
     @property
     def base_vocab_size(self) -> int:
-        return self.tokenizer.vocab_size
+        return getattr(self.tokenizer, "vocab_size", len(self.tokenizer))
 
     @property
     def added_tokens_count(self) -> int:
         return self.vocab_size - self.base_vocab_size
+
+    # ------------------------------------------------------------------
+    # Core encode / decode
+    # ------------------------------------------------------------------
 
     def encode(
         self,
@@ -139,59 +154,68 @@ class NumiTokenizer:
             list(texts),
             padding=padding,
             truncation=truncation,
-            max_length=max_length,
+            max_length=max_length or self.config.model_max_length,
             return_tensors=return_tensors,
             **kwargs,
         )
 
-    def add_special_tokens(self) -> int:
-        """
-        Add the complete Numi vocabulary extension.
+    # ------------------------------------------------------------------
+    # Special tokens
+    # ------------------------------------------------------------------
 
-        Returns:
-            Number of newly added tokens.
-        """
+    def add_special_tokens(self) -> int:
+        """Register all Numi special tokens on the underlying tokenizer."""
         tokens = self.special_tokens
 
-        special_tokens = {
+        special_tokens_dict = {
             "bos_token": tokens.bos,
             "eos_token": tokens.eos,
             "pad_token": tokens.pad,
+            "unk_token": tokens.unk,
             "additional_special_tokens": [
                 tokens.system,
                 tokens.user,
                 tokens.assistant,
                 tokens.tool,
                 tokens.tool_result,
+                tokens.start,
+                tokens.end,
             ],
         }
 
-        return self.tokenizer.add_special_tokens(special_tokens)
+        return self.tokenizer.add_special_tokens(special_tokens_dict)
 
     def token_id(self, token: str) -> int:
         token_id = self.tokenizer.convert_tokens_to_ids(token)
 
         if token_id is None:
-            raise KeyError(f"Token '{token}' is not present in the tokenizer.")
+            raise KeyError(f"Token '{token}' not found in vocabulary.")
 
-        if token_id == self.tokenizer.unk_token_id and token != self.tokenizer.unk_token:
-            raise KeyError(f"Token '{token}' is not present in the tokenizer.")
+        unk_id = getattr(self.tokenizer, "unk_token_id", None)
+        if token_id == unk_id and token != self.special_tokens.unk:
+            raise KeyError(f"Token '{token}' not found in vocabulary.")
 
         return int(token_id)
 
     def special_token_ids(self) -> dict[str, int]:
-        tokens = self.special_tokens
-
+        t = self.special_tokens
         return {
-            "bos": self.token_id(tokens.bos),
-            "eos": self.token_id(tokens.eos),
-            "pad": self.token_id(tokens.pad),
-            "system": self.token_id(tokens.system),
-            "user": self.token_id(tokens.user),
-            "assistant": self.token_id(tokens.assistant),
-            "tool": self.token_id(tokens.tool),
-            "tool_result": self.token_id(tokens.tool_result),
+            "bos": self.token_id(t.bos),
+            "eos": self.token_id(t.eos),
+            "pad": self.token_id(t.pad),
+            "unk": self.token_id(t.unk),
+            "system": self.token_id(t.system),
+            "user": self.token_id(t.user),
+            "assistant": self.token_id(t.assistant),
+            "tool": self.token_id(t.tool),
+            "tool_result": self.token_id(t.tool_result),
+            "start": self.token_id(t.start),
+            "end": self.token_id(t.end),
         }
+
+    # ------------------------------------------------------------------
+    # Chat formatting
+    # ------------------------------------------------------------------
 
     def render_chat(
         self,
@@ -216,7 +240,6 @@ class NumiTokenizer:
             messages,
             add_generation_prompt=add_generation_prompt,
         )
-
         return self.encode(
             prompt,
             add_special_tokens=add_special_tokens,
@@ -233,11 +256,13 @@ class NumiTokenizer:
             messages,
             add_generation_prompt=add_generation_prompt,
         )
-
         return self.tokenizer.tokenize(prompt)
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
 
     def save_pretrained(self, save_directory: str | Path) -> tuple[str, ...]:
         path = Path(save_directory)
         path.mkdir(parents=True, exist_ok=True)
-
         return self.tokenizer.save_pretrained(path)

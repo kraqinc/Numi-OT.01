@@ -8,9 +8,8 @@ class NumiSystemPrompt:
     """
     Runtime behavioral contract for Numi-OT.01.
 
-    This defines how Numi should behave. It does not represent the complete
-    knowledge of the model and must not be treated as a substitute for
-    training or retrieval.
+    This is the system prompt injected at the beginning of conversations.
+    It defines identity and behavior. It is NOT a substitute for training data.
     """
 
     identity: str = "Numi"
