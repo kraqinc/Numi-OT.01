@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal SFT entrypoint for Numi-OT.01."""
+"""CLI for Numi supervised fine-tuning."""
 
 from __future__ import annotations
 
@@ -11,40 +11,27 @@ import yaml
 from training.sft.train import train
 
 
-def load_config(path: str | Path) -> dict:
-    with Path(path).open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train Numi with supervised fine-tuning")
+    parser = argparse.ArgumentParser(description="Train Numi SFT")
+    parser.add_argument("--config", default="configs/training/sft.yaml")
+    parser.add_argument("--device", default=None, help="cpu | cuda | auto")
     parser.add_argument(
-        "--config",
-        type=str,
-        default="configs/training/sft.yaml",
-        help="Path to SFT config YAML",
+        "--resume",
+        default=None,
+        help="Path to checkpoint .pt to resume weights (and step if present)",
     )
-    parser.add_argument("--data", type=str, default=None, help="Override data path")
-    parser.add_argument("--output-dir", type=str, default=None, help="Override output dir")
-    parser.add_argument("--epochs", type=int, default=None)
-    parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--device", type=str, default=None, choices=["auto", "cpu", "cuda"])
     args = parser.parse_args()
 
-    config = load_config(args.config)
+    with open(args.config, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
 
-    if args.data:
-        config["data"]["path"] = args.data
-    if args.output_dir:
-        config["training"]["output_dir"] = args.output_dir
-    if args.epochs is not None:
-        config["training"]["num_epochs"] = args.epochs
-    if args.batch_size is not None:
-        config["training"]["batch_size"] = args.batch_size
-    if args.device is not None:
-        config["training"]["device"] = args.device
+    if args.device:
+        config.setdefault("training", {})["device"] = args.device
+    if args.resume:
+        config.setdefault("training", {})["resume_from"] = args.resume
 
-    train(config)
+    path = train(config)
+    print(f"Done: {path}")
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ from model.modeling.numi_causal_lm import NumiForCausalLM
 from tokenizer.factory import SimpleTokenizer, load_tokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
 from tokenizer.templates.chat import NumiChatTemplate
-from training.checkpointing.checkpoints import save_checkpoint
+from training.checkpointing.checkpoints import load_checkpoint, save_checkpoint
 from training.lora.lora import LoRAConfig, apply_lora, mark_only_lora_as_trainable
 
 __all__ = [
@@ -37,8 +37,6 @@ class SFTExample:
 
 
 class ConversationDataset(Dataset):
-    """Loads one or more JSONL conversation files and renders Numi chat template."""
-
     def __init__(
         self,
         path: str | Path | list[str | Path],
@@ -116,18 +114,12 @@ def _maybe_apply_lora(model: NumiForCausalLM, cfg: dict[str, Any]) -> bool:
         alpha=float(lora_cfg.get("alpha", 16.0)),
         dropout=float(lora_cfg.get("dropout", 0.0)),
         target_modules=tuple(
-            lora_cfg.get(
-                "target_modules",
-                ["q_proj", "k_proj", "v_proj", "o_proj"],
-            )
+            lora_cfg.get("target_modules", ["q_proj", "k_proj", "v_proj", "o_proj"])
         ),
     )
     n = apply_lora(model, config)
     mark_only_lora_as_trainable(model)
-    print(f"LoRA enabled: replaced {n} Linear layers (r={config.r}, alpha={config.alpha})")
-    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    total = sum(p.numel() for p in model.parameters())
-    print(f"Trainable params: {trainable:,} / {total:,} ({100 * trainable / max(total, 1):.2f}%)")
+    print(f"LoRA enabled: replaced {n} Linear layers (r={config.r})")
     return True
 
 
@@ -149,10 +141,6 @@ def train(config: dict[str, Any]) -> Path:
         vocab_size=config["model"]["vocab_size"],
     )
     if tokenizer.vocab_size != config["model"]["vocab_size"]:
-        print(
-            f"Adjusting model vocab_size {config['model']['vocab_size']} "
-            f"→ {tokenizer.vocab_size} to match tokenizer"
-        )
         config["model"]["vocab_size"] = tokenizer.vocab_size
 
     loader = DataLoader(
@@ -171,8 +159,14 @@ def train(config: dict[str, Any]) -> Path:
         enable_gradient_checkpointing(model)
         print("Gradient checkpointing enabled")
 
-    model.train()
+    resume_path = config["training"].get("resume_from")
+    start_step = 0
+    if resume_path and Path(resume_path).exists():
+        info = load_checkpoint(resume_path, model, strict=False, map_location=device)
+        start_step = int(info.get("step", 0))
+        print(f"Resumed from {resume_path} (step={start_step})")
 
+    model.train()
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(
         trainable_params,
@@ -192,14 +186,10 @@ def train(config: dict[str, Any]) -> Path:
         progress = (step - warmup_steps) / float(max(1, total_steps - warmup_steps))
         return 0.5 * (1.0 + math.cos(math.pi * progress))
 
-    global_step = 0
+    global_step = start_step
     optimizer.zero_grad(set_to_none=True)
 
-    print(f"Device: {device}")
-    print(f"Tokenizer: {type(tokenizer).__name__} (vocab={tokenizer.vocab_size})")
-    print(f"Examples: {len(dataset)}")
-    print(f"Steps: {total_steps}")
-    print(f"Params: {sum(p.numel() for p in model.parameters()):,}")
+    print(f"Device: {device} | Examples: {len(dataset)} | Steps: {total_steps}")
 
     for epoch in range(config["training"]["num_epochs"]):
         for batch_idx, batch in enumerate(loader):
@@ -209,7 +199,6 @@ def train(config: dict[str, Any]) -> Path:
             outputs = model(input_ids=input_ids, labels=labels)
             loss = outputs.loss
             assert loss is not None
-
             loss = loss / config["training"]["gradient_accumulation_steps"]
             loss.backward()
 
