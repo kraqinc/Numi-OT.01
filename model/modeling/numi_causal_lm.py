@@ -132,10 +132,8 @@ class NumiModel(NumiPreTrainedModel):
 class NumiForCausalLM(NumiPreTrainedModel):
     """Causal LM head with KV-cache and simple generation support."""
 
-    # transformers>=5 expects a dict (target -> source), not a list
-    _tied_weights_keys = {
-        "lm_head.projection.weight": "model.embed_tokens.weight",
-    }
+    # Manual tying via tie_weights(); empty dict for transformers>=5 compatibility
+    _tied_weights_keys: dict[str, str] = {}
 
     def __init__(self, config: NumiConfig) -> None:
         super().__init__(config)
