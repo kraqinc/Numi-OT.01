@@ -1,7 +1,6 @@
-# Minimal deps for GitHub Actions (CPU-only, fast install)
-# Install torch first from the CPU wheel index in the workflow.
+# Minimal deps for GitHub Actions (CPU-only torch installed separately)
 
-transformers>=4.45.0
+transformers>=4.45.0,<5.20.0
 accelerate>=1.0.0
 safetensors>=0.4.0
 numpy>=1.26.0

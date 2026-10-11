@@ -1,4 +1,4 @@
-# Development / CI dependencies
+# Development / local tests / API
 -r requirements.txt
 
 pytest>=8.0.0

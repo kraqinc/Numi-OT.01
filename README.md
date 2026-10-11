@@ -2,6 +2,8 @@
 
 **Original sparse Mixture-of-Experts language model for Numination.**
 
+Built from scratch. Independent tokenizer, architecture, training and serving stack.
+
 ## Pipeline
 
 ```text
@@ -15,71 +17,78 @@
 ## Install
 
 ```bash
+# Dev + tests + API
 pip install -r requirements-dev.txt
+pip install -e .
+
+# Or CI-style (CPU torch first)
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements-ci.txt
+pip install -e .
 ```
 
-## Train tokenizer
+## Quick commands
 
 ```bash
+# Tokenizer
 python scripts/tokenizer/train_tokenizer.py \
   --data datasets/2026/numi_conversation_seed.jsonl \
-  --output artifacts/tokenizer \
-  --vocab-size 4000
-```
+  --output artifacts/tokenizer --vocab-size 4000
 
-SFT / API / generate auto-load `artifacts/tokenizer` if present.
-
-## CPT (streaming)
-
-```bash
+# CPT
 python scripts/training/train_cpt.py --config configs/training/cpt.yaml --device cpu --max-steps 20
-```
 
-## SFT
-
-```bash
+# SFT
 python scripts/training/train_sft.py --config configs/training/sft.yaml --device cpu
-```
 
-## DPO
-
-```bash
+# DPO
 python scripts/training/train_dpo.py --config configs/training/dpo.yaml --device cpu
-```
 
-## Evaluate
-
-```bash
+# Eval
 python scripts/evaluation/evaluate.py --device cpu
-```
 
-## Generate
-
-```bash
+# Generate
 python scripts/generate.py --prompt "Hola" --device cpu
-```
 
-## API / Docker
-
-```bash
+# API
 python scripts/serve.py --port 8000
-# or
+
+# Docker
 docker compose up --build
+
+# Tests
+pytest -q
 ```
 
-## Tests
+## Docs
 
-```bash
-pytest -q tests/architecture tests/tokenizer tests/training tests/serving tests/evaluation
+| Guide | Path |
+|-------|------|
+| Architecture | [docs/architecture/README.md](docs/architecture/README.md) |
+| Training | [docs/training/README.md](docs/training/README.md) |
+| Data formats | [docs/data/README.md](docs/data/README.md) |
+| Serving / API | [docs/serving/README.md](docs/serving/README.md) |
+| Supabase integration | [docs/supabase.md](docs/supabase.md) |
+
+## Layout
+
+```text
+architecture/  model/  tokenizer/  training/  serving/
+evaluation/  datasets/  configs/  scripts/  tests/  docs/
 ```
 
 ## Status
 
 - [x] MoE + SDPA + KV-cache
-- [x] Trainable BPE integrated into SFT/API/generate
+- [x] Trainable BPE (SFT/API/generate)
 - [x] CPT streaming
 - [x] SFT + DPO
 - [x] Smoke eval
-- [x] FastAPI + Docker
+- [x] OpenAI-compatible API + Docker
+- [x] CI workflows (CPU torch)
 - [ ] Full-corpus CPT
 - [ ] Production-scale training
+
+## License
+
+Numination — see repository policy.
