@@ -3,16 +3,16 @@ from __future__ import annotations
 from torch import Tensor, nn
 
 from architecture.attention.attention import Attention
+from architecture.attention.cache import KVCache
 from architecture.moe.moe import MoE
 from architecture.normalization.rmsnorm import RMSNorm
 
 
 class TransformerBlock(nn.Module):
     """
-    Standard pre-norm transformer block with MoE.
+    Pre-norm transformer block with MoE + KV-cache support.
 
-    Structure (Llama / Mixtral style):
-
+    Structure:
         x → RMSNorm → Attention → + residual
           → RMSNorm → MoE       → + residual
     """
@@ -60,11 +60,21 @@ class TransformerBlock(nn.Module):
         hidden_states: Tensor,
         *,
         attention_mask: Tensor | None = None,
-    ) -> Tensor:
+        past_key_value: KVCache | None = None,
+        use_cache: bool = False,
+        position_offset: int = 0,
+    ) -> tuple[Tensor, KVCache | None]:
         # Attention sub-layer
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
-        hidden_states = self.self_attn(hidden_states, attention_mask=attention_mask)
+
+        hidden_states, present_key_value = self.self_attn(
+            hidden_states,
+            attention_mask=attention_mask,
+            past_key_value=past_key_value,
+            use_cache=use_cache,
+            position_offset=position_offset,
+        )
         hidden_states = residual + hidden_states
 
         # MoE sub-layer
@@ -73,4 +83,4 @@ class TransformerBlock(nn.Module):
         hidden_states = self.mlp(hidden_states)
         hidden_states = residual + hidden_states
 
-        return hidden_states
+        return hidden_states, present_key_value

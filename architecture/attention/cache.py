@@ -2,57 +2,50 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import torch
 from torch import Tensor
 
 
 @dataclass
 class KVCache:
+    """
+    Simple key-value cache for one attention layer.
+
+    Stores the accumulated key and value tensors across generation steps.
+    Shape of key/value: [batch, num_kv_heads, seq_len, head_dim]
+    """
+
     key: Tensor | None = None
     value: Tensor | None = None
 
-    @property
-    def seq_len(self) -> int:
-        if self.key is None:
-            return 0
-        return self.key.shape[-2]
+    def update(self, key_states: Tensor, value_states: Tensor) -> tuple[Tensor, Tensor]:
+        """
+        Append new key/value states and return the full cache.
 
-    def update(self, key: Tensor, value: Tensor) -> tuple[Tensor, Tensor]:
+        Args:
+            key_states:   [batch, num_kv_heads, new_seq, head_dim]
+            value_states: [batch, num_kv_heads, new_seq, head_dim]
+
+        Returns:
+            (full_key, full_value) ready for attention.
+        """
         if self.key is None:
-            self.key = key
-            self.value = value
+            self.key = key_states
+            self.value = value_states
         else:
-            self.key = torch.cat((self.key, key), dim=-2)
-            self.value = torch.cat((self.value, value), dim=-2)
+            self.key = torch.cat([self.key, key_states], dim=2)
+            self.value = torch.cat([self.value, value_states], dim=2)
 
         return self.key, self.value
+
+    def get_seq_length(self) -> int:
+        if self.key is None:
+            return 0
+        return self.key.shape[2]
 
     def clear(self) -> None:
         self.key = None
         self.value = None
 
-    def to(self, device: torch.device | str) -> "KVCache":
-        if self.key is not None:
-            self.key = self.key.to(device)
-        if self.value is not None:
-            self.value = self.value.to(device)
-        return self
 
-
-class KVCacheManager:
-    def __init__(self, num_layers: int) -> None:
-        self.layers = [KVCache() for _ in range(num_layers)]
-
-    def __getitem__(self, layer_idx: int) -> KVCache:
-        return self.layers[layer_idx]
-
-    def clear(self) -> None:
-        for cache in self.layers:
-            cache.clear()
-
-    @property
-    def seq_len(self) -> int:
-        for cache in self.layers:
-            if cache.seq_len:
-                return cache.seq_len
-        return 0
+# Need torch for cat
+import torch  # noqa: E402
