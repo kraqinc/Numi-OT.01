@@ -16,6 +16,8 @@ model:
 
 data:
   path: datasets/2026/numi_conversation_seed.jsonl
+  extra_paths:
+    - datasets/2026/numi_identity_seed.jsonl
   tokenizer_path: artifacts/tokenizer
   max_seq_length: 512
 
@@ -43,3 +45,4 @@ training:
   save_steps: 50
   seed: 42
   device: auto
+  gradient_checkpointing: false

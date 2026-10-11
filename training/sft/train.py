@@ -12,6 +12,7 @@ from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset
 
 from model.configs.numi_config import NumiConfig
+from model.modeling.gradient_checkpointing import enable_gradient_checkpointing
 from model.modeling.numi_causal_lm import NumiForCausalLM
 from tokenizer.factory import SimpleTokenizer, load_tokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
@@ -36,27 +37,35 @@ class SFTExample:
 
 
 class ConversationDataset(Dataset):
-    """Loads JSONL conversations and renders them with the Numi chat template."""
+    """Loads one or more JSONL conversation files and renders Numi chat template."""
 
-    def __init__(self, path: str | Path, max_length: int = 512) -> None:
-        self.path = Path(path)
+    def __init__(
+        self,
+        path: str | Path | list[str | Path],
+        max_length: int = 512,
+    ) -> None:
+        paths = [path] if isinstance(path, (str, Path)) else list(path)
         self.max_length = max_length
         self.tokens = NumiSpecialTokens()
         self.template = NumiChatTemplate.from_special_tokens(self.tokens)
         self.examples: list[SFTExample] = []
 
-        with self.path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                record = json.loads(line)
-                messages = record.get("messages", [])
-                text = self.template.render(messages, add_generation_prompt=False)
-                self.examples.append(SFTExample(text=text))
+        for p in paths:
+            file_path = Path(p)
+            if not file_path.exists():
+                continue
+            with file_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    record = json.loads(line)
+                    messages = record.get("messages", [])
+                    text = self.template.render(messages, add_generation_prompt=False)
+                    self.examples.append(SFTExample(text=text))
 
         if not self.examples:
-            raise ValueError(f"No examples found in {self.path}")
+            raise ValueError(f"No examples found in {paths}")
 
     def __len__(self) -> int:
         return len(self.examples)
@@ -92,6 +101,12 @@ def build_model(cfg: dict[str, Any]) -> NumiForCausalLM:
     return NumiForCausalLM(NumiConfig(**cfg["model"]))
 
 
+def _data_paths(cfg: dict[str, Any]) -> list[str | Path]:
+    primary = cfg["data"]["path"]
+    extra = cfg["data"].get("extra_paths") or []
+    return [primary, *extra]
+
+
 def _maybe_apply_lora(model: NumiForCausalLM, cfg: dict[str, Any]) -> bool:
     lora_cfg = cfg.get("lora") or {}
     if not lora_cfg.get("enabled", False):
@@ -125,7 +140,7 @@ def train(config: dict[str, Any]) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     dataset = ConversationDataset(
-        config["data"]["path"],
+        _data_paths(config),
         max_length=config["data"]["max_seq_length"],
     )
 
@@ -151,6 +166,11 @@ def train(config: dict[str, Any]) -> Path:
 
     model = build_model(config).to(device)
     use_lora = _maybe_apply_lora(model, config)
+
+    if config["training"].get("gradient_checkpointing", False):
+        enable_gradient_checkpointing(model)
+        print("Gradient checkpointing enabled")
+
     model.train()
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
