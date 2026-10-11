@@ -8,7 +8,7 @@ def test_default_system_prompt() -> None:
     assert "Mission:" in prompt
     assert "Personality:" in prompt
     assert "Reasoning:" in prompt
-    assert "Communication:" in prompt
+    assert "Conversation:" in prompt
     assert "Coding:" in prompt
     assert "Honesty:" in prompt
     assert "Safety:" in prompt
@@ -16,7 +16,6 @@ def test_default_system_prompt() -> None:
 
 def test_system_prompt_message() -> None:
     prompt = NumiSystemPrompt()
-
     message = prompt.as_message()
 
     assert message["role"] == "system"

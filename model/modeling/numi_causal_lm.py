@@ -41,12 +41,7 @@ class NumiPreTrainedModel(PreTrainedModel):
 
 
 class NumiModel(NumiPreTrainedModel):
-    """
-    Core Numi transformer with full KV-cache support.
-
-    Architecture inspired by Llama 3 (attention/RoPE/RMSNorm)
-    and Mixtral (sparse MoE). Built from scratch.
-    """
+    """Core Numi transformer with full KV-cache support."""
 
     def __init__(self, config: NumiConfig) -> None:
         super().__init__(config)
@@ -81,7 +76,6 @@ class NumiModel(NumiPreTrainedModel):
         )
 
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-
         self.gradient_checkpointing = False
         self.post_init()
 
@@ -101,7 +95,6 @@ class NumiModel(NumiPreTrainedModel):
     ) -> tuple[Tensor, list[KVCache] | None]:
         hidden_states = self.embed_tokens(input_ids)
 
-        # Position offset for RoPE when using cache
         position_offset = 0
         if past_key_values is not None and len(past_key_values) > 0:
             position_offset = past_key_values[0].get_seq_length()
@@ -112,7 +105,6 @@ class NumiModel(NumiPreTrainedModel):
             past = past_key_values[i] if past_key_values is not None else None
 
             if self.gradient_checkpointing and self.training:
-                # Checkpointing is incompatible with use_cache during training
                 hidden_states, _ = torch.utils.checkpoint.checkpoint(
                     layer,
                     hidden_states,
@@ -140,7 +132,10 @@ class NumiModel(NumiPreTrainedModel):
 class NumiForCausalLM(NumiPreTrainedModel):
     """Causal LM head with KV-cache and simple generation support."""
 
-    _tied_weights_keys = ["lm_head.projection.weight"]
+    # transformers>=5 expects a dict (target -> source), not a list
+    _tied_weights_keys = {
+        "lm_head.projection.weight": "model.embed_tokens.weight",
+    }
 
     def __init__(self, config: NumiConfig) -> None:
         super().__init__(config)
@@ -201,7 +196,6 @@ class NumiForCausalLM(NumiPreTrainedModel):
                 ignore_index=-100,
             )
 
-        # MoE load-balancing loss
         aux_loss = None
         for layer in self.model.layers:
             if layer.mlp.last_aux_loss is not None:
@@ -235,27 +229,11 @@ class NumiForCausalLM(NumiPreTrainedModel):
         eos_token_id: int | None = None,
         attention_mask: Tensor | None = None,
     ) -> Tensor:
-        """
-        Simple autoregressive generation with KV-cache.
-
-        Args:
-            input_ids:       [batch, seq]
-            max_new_tokens:  how many tokens to generate
-            temperature:     sampling temperature (1.0 = no change)
-            top_k:           keep only top-k logits (optional)
-            top_p:           nucleus sampling (optional)
-            eos_token_id:    stop when this token is generated
-
-        Returns:
-            generated token ids [batch, seq + new_tokens]
-        """
         self.eval()
-        batch_size = input_ids.shape[0]
         generated = input_ids
         past_key_values: list[KVCache] | None = None
 
         for _ in range(max_new_tokens):
-            # On first step use full sequence, afterwards only the last token
             if past_key_values is None:
                 model_input = generated
             else:
@@ -268,19 +246,16 @@ class NumiForCausalLM(NumiPreTrainedModel):
                 use_cache=True,
             )
 
-            logits = outputs.logits[:, -1, :]  # [batch, vocab]
+            logits = outputs.logits[:, -1, :]
             past_key_values = outputs.past_key_values
 
-            # Temperature
             if temperature != 1.0:
                 logits = logits / temperature
 
-            # Top-k
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float("inf")
 
-            # Top-p (nucleus)
             if top_p is not None and top_p < 1.0:
                 sorted_logits, sorted_indices = torch.sort(logits, descending=True)
                 cumulative_probs = torch.cumsum(
@@ -297,12 +272,10 @@ class NumiForCausalLM(NumiPreTrainedModel):
                 logits[indices_to_remove] = -float("inf")
 
             probs = torch.softmax(logits, dim=-1)
-            next_token = torch.multinomial(probs, num_samples=1)  # [batch, 1]
-
+            next_token = torch.multinomial(probs, num_samples=1)
             generated = torch.cat([generated, next_token], dim=-1)
 
-            if eos_token_id is not None:
-                if (next_token == eos_token_id).all():
-                    break
+            if eos_token_id is not None and (next_token == eos_token_id).all():
+                break
 
         return generated
