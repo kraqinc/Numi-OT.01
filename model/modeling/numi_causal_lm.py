@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import torch
 from torch import Tensor, nn
@@ -158,8 +159,15 @@ class NumiForCausalLM(NumiPreTrainedModel):
     def set_output_embeddings(self, new_embeddings: nn.Module) -> None:
         self.lm_head.projection = new_embeddings
 
-    def tie_weights(self) -> None:
-        if not self.config.tie_word_embeddings:
+    def tie_weights(self, *args: Any, **kwargs: Any) -> None:
+        """Share LM head weights with input embeddings.
+
+        Accepts *args/**kwargs so transformers>=5 can call
+        ``tie_weights(recompute_mapping=False)`` without TypeError.
+        """
+        if not getattr(self.config, "tie_word_embeddings", True):
+            return
+        if not hasattr(self, "model") or not hasattr(self, "lm_head"):
             return
         emb = self.model.embed_tokens
         self.lm_head.vocab_size = emb.vocab_size
