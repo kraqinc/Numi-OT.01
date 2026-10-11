@@ -16,8 +16,9 @@ from model.modeling.numi_causal_lm import NumiForCausalLM
 from tokenizer.factory import SimpleTokenizer, load_tokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
 from tokenizer.templates.chat import NumiChatTemplate
+from training.checkpointing.checkpoints import save_checkpoint
+from training.lora.lora import LoRAConfig, apply_lora, mark_only_lora_as_trainable
 
-# Re-export for older imports
 __all__ = [
     "ConversationDataset",
     "SimpleTokenizer",
@@ -91,6 +92,30 @@ def build_model(cfg: dict[str, Any]) -> NumiForCausalLM:
     return NumiForCausalLM(NumiConfig(**cfg["model"]))
 
 
+def _maybe_apply_lora(model: NumiForCausalLM, cfg: dict[str, Any]) -> bool:
+    lora_cfg = cfg.get("lora") or {}
+    if not lora_cfg.get("enabled", False):
+        return False
+    config = LoRAConfig(
+        r=int(lora_cfg.get("r", 8)),
+        alpha=float(lora_cfg.get("alpha", 16.0)),
+        dropout=float(lora_cfg.get("dropout", 0.0)),
+        target_modules=tuple(
+            lora_cfg.get(
+                "target_modules",
+                ["q_proj", "k_proj", "v_proj", "o_proj"],
+            )
+        ),
+    )
+    n = apply_lora(model, config)
+    mark_only_lora_as_trainable(model)
+    print(f"LoRA enabled: replaced {n} Linear layers (r={config.r}, alpha={config.alpha})")
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
+    print(f"Trainable params: {trainable:,} / {total:,} ({100 * trainable / max(total, 1):.2f}%)")
+    return True
+
+
 def train(config: dict[str, Any]) -> Path:
     random.seed(config["training"]["seed"])
     torch.manual_seed(config["training"]["seed"])
@@ -108,7 +133,6 @@ def train(config: dict[str, Any]) -> Path:
         config["data"].get("tokenizer_path"),
         vocab_size=config["model"]["vocab_size"],
     )
-    # Keep model vocab in sync with tokenizer when BPE is smaller
     if tokenizer.vocab_size != config["model"]["vocab_size"]:
         print(
             f"Adjusting model vocab_size {config['model']['vocab_size']} "
@@ -126,10 +150,12 @@ def train(config: dict[str, Any]) -> Path:
     )
 
     model = build_model(config).to(device)
+    use_lora = _maybe_apply_lora(model, config)
     model.train()
 
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(
-        model.parameters(),
+        trainable_params,
         lr=config["training"]["learning_rate"],
         weight_decay=config["training"]["weight_decay"],
     )
@@ -169,7 +195,7 @@ def train(config: dict[str, Any]) -> Path:
 
             if (batch_idx + 1) % config["training"]["gradient_accumulation_steps"] == 0:
                 nn.utils.clip_grad_norm_(
-                    model.parameters(), config["training"]["max_grad_norm"]
+                    trainable_params, config["training"]["max_grad_norm"]
                 )
                 for pg in optimizer.param_groups:
                     pg["lr"] = config["training"]["learning_rate"] * lr_at(global_step)
@@ -185,25 +211,26 @@ def train(config: dict[str, Any]) -> Path:
 
                 if global_step % config["training"]["save_steps"] == 0:
                     ckpt = output_dir / f"checkpoint-{global_step}.pt"
-                    torch.save(
-                        {
-                            "model": model.state_dict(),
-                            "config": config,
-                            "step": global_step,
-                        },
+                    save_checkpoint(
                         ckpt,
+                        model=model,
+                        config=config,
+                        step=global_step,
+                        optimizer=optimizer,
+                        lora_only=use_lora,
+                        extra={"tokenizer_path": config["data"].get("tokenizer_path")},
                     )
                     print(f"Saved {ckpt}")
 
     final_path = output_dir / "final.pt"
-    torch.save(
-        {
-            "model": model.state_dict(),
-            "config": config,
-            "step": global_step,
-            "tokenizer_path": config["data"].get("tokenizer_path"),
-        },
+    save_checkpoint(
         final_path,
+        model=model,
+        config=config,
+        step=global_step,
+        optimizer=optimizer,
+        lora_only=use_lora,
+        extra={"tokenizer_path": config["data"].get("tokenizer_path")},
     )
     print(f"Training complete → {final_path}")
     return final_path

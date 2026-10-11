@@ -5,7 +5,7 @@
 ```text
 1. Train BPE tokenizer
 2. CPT (optional)
-3. SFT
+3. SFT (full or LoRA)
 4. DPO
 5. Evaluate
 ```
@@ -19,49 +19,50 @@ python scripts/tokenizer/train_tokenizer.py \
   --vocab-size 4000
 ```
 
-SFT / CPT / API auto-load `artifacts/tokenizer` via `tokenizer.factory.load_tokenizer`.
-
-## CPT (streaming)
-
-Packs streamed text into fixed-length batches.
+## CPT
 
 ```bash
 python scripts/training/train_cpt.py \
   --config configs/training/cpt.yaml \
-  --device cpu \
-  --max-steps 20
+  --device cpu --max-steps 20
 ```
 
-Config: `configs/training/cpt.yaml`
-
-## SFT
+## SFT (full fine-tune)
 
 ```bash
-python scripts/training/train_sft.py \
-  --config configs/training/sft.yaml \
-  --device cpu
+python scripts/training/train_sft.py --config configs/training/sft.yaml --device cpu
 ```
 
-- Data: JSONL with `messages` (system/user/assistant)
-- Template: Numi chat special tokens
-- Checkpoint: `outputs/sft/final.pt`
+## SFT with LoRA
+
+```bash
+python scripts/training/train_sft.py --config configs/training/sft_lora.yaml --device cpu
+```
+
+LoRA settings live under `lora:` in the YAML:
+
+```yaml
+lora:
+  enabled: true
+  r: 8
+  alpha: 16.0
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+```
+
+Only adapter weights are trained and saved when `lora.enabled: true`.
 
 ## DPO
 
 ```bash
-python scripts/training/train_dpo.py \
-  --config configs/training/dpo.yaml \
-  --device cpu
+python scripts/training/train_dpo.py --config configs/training/dpo.yaml --device cpu
 ```
 
-Preference JSONL fields:
+## Checkpoints
 
-```json
-{"prompt": "...", "chosen": "...", "rejected": "..."}
+```python
+from training.checkpointing import save_checkpoint, load_checkpoint
 ```
 
-## Notes
-
-- Start with CPU + tiny config to validate the pipeline.
-- Scale `hidden_size` / layers / data only after the smoke path works.
-- Always keep `vocab_size` aligned with the active tokenizer.
+- Full model: `lora_only=False` (default when LoRA is off)
+- Adapters only: `lora_only=True` when LoRA is enabled
