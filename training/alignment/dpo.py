@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import torch
 from torch import Tensor, nn
-from torch.utils.data import DataLoader, Dataset
 
 from model.configs.numi_config import NumiConfig
 from model.modeling.numi_causal_lm import NumiForCausalLM
@@ -24,7 +22,7 @@ class PreferenceExample:
     rejected: str
 
 
-class PreferenceDataset(Dataset):
+class PreferenceDataset:
     """JSONL with fields: prompt, chosen, rejected (or messages + chosen/rejected)."""
 
     def __init__(self, path: str | Path) -> None:
@@ -67,16 +65,14 @@ def logps_for_completion(
     input_ids: Tensor,
     prompt_len: int,
 ) -> Tensor:
-    """Average log-prob of tokens after the prompt."""
+    """Sum of log-probs of tokens after the prompt."""
     outputs = model(input_ids=input_ids)
-    logits = outputs.logits  # [1, S, V]
+    logits = outputs.logits
     log_probs = torch.log_softmax(logits[:, :-1, :], dim=-1)
     target = input_ids[:, 1:]
     token_logps = log_probs.gather(2, target.unsqueeze(-1)).squeeze(-1)
-    # only completion tokens (positions >= prompt_len-1 in shifted space)
     start = max(prompt_len - 1, 0)
-    completion_logps = token_logps[:, start:]
-    return completion_logps.sum(dim=-1)  # [1]
+    return token_logps[:, start:].sum(dim=-1)
 
 
 def dpo_loss(
@@ -99,12 +95,11 @@ def train_dpo(config: dict[str, Any]) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     tokenizer = SimpleTokenizer(vocab_size=config["model"]["vocab_size"])
-    max_len = config["data"]["max_seq_length"]
+    max_len = int(config["data"]["max_seq_length"])
 
     policy = NumiForCausalLM(NumiConfig(**config["model"])).to(device)
     ref = NumiForCausalLM(NumiConfig(**config["model"])).to(device)
 
-    # Optional: load SFT checkpoint into both
     ckpt_path = config["training"].get("sft_checkpoint")
     if ckpt_path and Path(ckpt_path).exists():
         state = torch.load(ckpt_path, map_location=device, weights_only=False)
@@ -116,8 +111,6 @@ def train_dpo(config: dict[str, Any]) -> Path:
     ref.eval()
 
     dataset = PreferenceDataset(config["data"]["path"])
-    loader = DataLoader(dataset, batch_size=1, shuffle=True)
-
     optimizer = torch.optim.AdamW(
         policy.parameters(),
         lr=config["training"]["learning_rate"],
@@ -126,37 +119,20 @@ def train_dpo(config: dict[str, Any]) -> Path:
 
     beta = float(config["training"].get("beta", 0.1))
     policy.train()
-
     step = 0
-    for epoch in range(config["training"]["num_epochs"]):
-        for example in loader:
-            # DataLoader with batch_size=1 yields batched strings oddly; handle both
-            if isinstance(example, dict):
-                prompt = example["prompt"][0] if isinstance(example["prompt"], list) else example.prompt
-                chosen = example["chosen"][0] if isinstance(example["chosen"], list) else example.chosen
-                rejected = example["rejected"][0] if isinstance(example["rejected"], list) else example.rejected
-            else:
-                # default collate on dataclass becomes lists
-                prompt = example.prompt[0] if isinstance(example.prompt, (list, tuple)) else example.prompt
-                chosen = example.chosen[0] if isinstance(example.chosen, (list, tuple)) else example.chosen
-                rejected = example.rejected[0] if isinstance(example.rejected, (list, tuple)) else example.rejected
 
-            # Prefer PreferenceExample attributes when collate keeps objects
-            if hasattr(example, "prompt") and not isinstance(example, dict):
-                # pytorch default collate converts dataclass to dict-like via fields
-                pass
+    print(f"Device: {device}")
+    print(f"Preference pairs: {len(dataset)}")
 
-            # Robust path: dataset returns PreferenceExample; default_collate fails on dataclass
-            # so we use batch_size=1 with a custom approach below.
-
-    # Custom loop without default_collate issues
-    optimizer.zero_grad(set_to_none=True)
-    for epoch in range(config["training"]["num_epochs"]):
+    for epoch in range(int(config["training"]["num_epochs"])):
         for i in range(len(dataset)):
             ex = dataset[i]
             prompt_ids = tokenizer.encode(ex.prompt, max_length=max_len // 2)
             chosen_ids = tokenizer.encode(ex.prompt + ex.chosen, max_length=max_len)
             rejected_ids = tokenizer.encode(ex.prompt + ex.rejected, max_length=max_len)
+
+            if len(chosen_ids) < 2 or len(rejected_ids) < 2:
+                continue
 
             chosen_tensor = torch.tensor([chosen_ids], dtype=torch.long, device=device)
             rejected_tensor = torch.tensor([rejected_ids], dtype=torch.long, device=device)
@@ -169,14 +145,18 @@ def train_dpo(config: dict[str, Any]) -> Path:
                 ref_chosen = logps_for_completion(ref, chosen_tensor, prompt_len)
                 ref_rejected = logps_for_completion(ref, rejected_tensor, prompt_len)
 
-            loss = dpo_loss(policy_chosen, policy_rejected, ref_chosen, ref_rejected, beta=beta)
+            loss = dpo_loss(
+                policy_chosen, policy_rejected, ref_chosen, ref_rejected, beta=beta
+            )
             loss.backward()
-            nn.utils.clip_grad_norm_(policy.parameters(), config["training"].get("max_grad_norm", 1.0))
+            nn.utils.clip_grad_norm_(
+                policy.parameters(), config["training"].get("max_grad_norm", 1.0)
+            )
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
 
             step += 1
-            if step % config["training"].get("logging_steps", 5) == 0:
+            if step % int(config["training"].get("logging_steps", 5)) == 0:
                 print(f"epoch={epoch} step={step} dpo_loss={loss.item():.4f}")
 
     final_path = output_dir / "dpo_final.pt"
