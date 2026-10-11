@@ -4,86 +4,49 @@ import torch
 from torch import Tensor
 
 
-def build_rope_cache(
-    sequence_length: int,
-    head_dim: int,
-    *,
-    theta: float = 1_000_000.0,
+def precompute_freqs_cis(
+    dim: int,
+    end: int,
+    theta: float = 500_000.0,
     device: torch.device | None = None,
-    dtype: torch.dtype = torch.float32,
 ) -> tuple[Tensor, Tensor]:
-    if head_dim % 2 != 0:
-        raise ValueError(
-            "head_dim must be even for rotary embeddings."
-        )
+    """
+    Precompute the frequency tensors for RoPE (Rotary Position Embedding).
 
-    positions = torch.arange(
-        sequence_length,
-        device=device,
-        dtype=dtype,
+    Same formulation used by Llama 3 / Mistral.
+    """
+    freqs = 1.0 / (
+        theta ** (torch.arange(0, dim, 2, device=device, dtype=torch.float32) / dim)
     )
+    t = torch.arange(end, device=device, dtype=torch.float32)
+    freqs = torch.outer(t, freqs)  # [seq_len, dim/2]
 
-    frequencies = torch.arange(
-        0,
-        head_dim,
-        2,
-        device=device,
-        dtype=dtype,
-    )
-
-    inverse_frequencies = 1.0 / (
-        theta ** (frequencies / head_dim)
-    )
-
-    angles = torch.outer(
-        positions,
-        inverse_frequencies,
-    )
-
-    cos = angles.cos()
-    sin = angles.sin()
-
+    cos = torch.cos(freqs)
+    sin = torch.sin(freqs)
     return cos, sin
 
 
 def rotate_half(x: Tensor) -> Tensor:
-    x1 = x[..., ::2]
-    x2 = x[..., 1::2]
-
-    rotated = torch.stack(
-        (-x2, x1),
-        dim=-1,
-    )
-
-    return rotated.flatten(-2)
+    """Rotates half the hidden dims of the input."""
+    x1 = x[..., : x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2 :]
+    return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_rope(
+def apply_rotary_emb(
     x: Tensor,
     cos: Tensor,
     sin: Tensor,
 ) -> Tensor:
     """
-    x: [batch, heads, sequence, head_dim]
-    cos/sin: [sequence, head_dim/2]
+    Apply rotary position embedding.
+
+    x   : [batch, heads, seq, head_dim]
+    cos : [seq, head_dim]
+    sin : [seq, head_dim]
     """
-
-    cos = torch.repeat_interleave(
-        cos,
-        2,
-        dim=-1,
-    )
-
-    sin = torch.repeat_interleave(
-        sin,
-        2,
-        dim=-1,
-    )
-
-    cos = cos.unsqueeze(0).unsqueeze(0)
+    # Expand cos/sin to match x
+    cos = cos.unsqueeze(0).unsqueeze(0)  # [1, 1, seq, head_dim]
     sin = sin.unsqueeze(0).unsqueeze(0)
 
-    return (
-        x * cos
-        + rotate_half(x) * sin
-    )
+    return (x * cos) + (rotate_half(x) * sin)

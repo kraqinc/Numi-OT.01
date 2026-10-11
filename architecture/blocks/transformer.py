@@ -2,18 +2,19 @@ from __future__ import annotations
 
 from torch import Tensor, nn
 
-from architecture.attention.attention import NumiAttention
-from architecture.moe.moe import NumiMoE
-from architecture.normalization.rmsnorm import NumiRMSNorm
+from architecture.attention.attention import Attention
+from architecture.moe.moe import MoE
+from architecture.normalization.rmsnorm import RMSNorm
 
 
-class NumiTransformerBlock(nn.Module):
+class TransformerBlock(nn.Module):
     """
-    Single transformer block for Numi-OT.01.
+    Standard pre-norm transformer block with MoE.
 
-    Structure (same as Qwen2-MoE / Mixtral style):
-        x → RMSNorm → Attention → residual
-          → RMSNorm → MoE        → residual
+    Structure (Llama / Mixtral style):
+
+        x → RMSNorm → Attention → + residual
+          → RMSNorm → MoE       → + residual
     """
 
     def __init__(
@@ -25,35 +26,33 @@ class NumiTransformerBlock(nn.Module):
         num_experts: int,
         num_experts_per_tok: int,
         *,
-        rope_theta: float = 1_000_000.0,
-        rms_norm_eps: float = 1e-6,
-        max_position_embeddings: int = 32768,
+        rope_theta: float = 500_000.0,
+        rms_norm_eps: float = 1e-5,
+        max_position_embeddings: int = 8192,
+        attention_dropout: float = 0.0,
+        router_jitter_noise: float = 0.0,
     ) -> None:
         super().__init__()
 
-        self.input_layernorm = NumiRMSNorm(
-            hidden_size,
-            eps=rms_norm_eps,
-        )
+        self.input_layernorm = RMSNorm(hidden_size, eps=rms_norm_eps)
 
-        self.self_attn = NumiAttention(
+        self.self_attn = Attention(
             hidden_size=hidden_size,
-            num_attention_heads=num_attention_heads,
-            num_key_value_heads=num_key_value_heads,
+            num_heads=num_attention_heads,
+            num_kv_heads=num_key_value_heads,
             rope_theta=rope_theta,
             max_position_embeddings=max_position_embeddings,
+            attention_dropout=attention_dropout,
         )
 
-        self.post_attention_layernorm = NumiRMSNorm(
-            hidden_size,
-            eps=rms_norm_eps,
-        )
+        self.post_attention_layernorm = RMSNorm(hidden_size, eps=rms_norm_eps)
 
-        self.moe = NumiMoE(
+        self.mlp = MoE(
             hidden_size=hidden_size,
             intermediate_size=moe_intermediate_size,
             num_experts=num_experts,
             top_k=num_experts_per_tok,
+            router_jitter_noise=router_jitter_noise,
         )
 
     def forward(
@@ -61,25 +60,17 @@ class NumiTransformerBlock(nn.Module):
         hidden_states: Tensor,
         *,
         attention_mask: Tensor | None = None,
-        position_offset: int = 0,
     ) -> Tensor:
+        # Attention sub-layer
         residual = hidden_states
-
         hidden_states = self.input_layernorm(hidden_states)
-
-        hidden_states = self.self_attn(
-            hidden_states,
-            attention_mask=attention_mask,
-            position_offset=position_offset,
-        )
-
+        hidden_states = self.self_attn(hidden_states, attention_mask=attention_mask)
         hidden_states = residual + hidden_states
 
+        # MoE sub-layer
         residual = hidden_states
-
         hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = self.moe(hidden_states)
-
+        hidden_states = self.mlp(hidden_states)
         hidden_states = residual + hidden_states
 
         return hidden_states

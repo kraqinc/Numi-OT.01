@@ -1,3 +1,3 @@
-from .attention import NumiAttention, repeat_kv
+from .attention import Attention, repeat_kv
 
-__all__ = ["NumiAttention", "repeat_kv"]
+__all__ = ["Attention", "repeat_kv"]

@@ -9,23 +9,26 @@ def load_balance_loss(
     expert_indices: Tensor,
     num_experts: int,
 ) -> Tensor:
-    probs = router_probs.reshape(-1, num_experts)
-    indices = expert_indices.reshape(-1)
+    """
+    Switch Transformer style load balancing loss.
 
-    importance = probs.mean(dim=0)
+    Encourages the router to distribute tokens evenly across experts.
 
-    load = torch.zeros(
-        num_experts,
-        device=probs.device,
-        dtype=probs.dtype,
+    Args:
+        router_probs   : [num_tokens, num_experts]  (full softmax)
+        expert_indices : [num_tokens, top_k]
+        num_experts    : int
+    """
+    # Fraction of tokens routed to each expert
+    num_tokens = expert_indices.shape[0]
+    expert_mask = torch.zeros(
+        num_tokens, num_experts, device=expert_indices.device, dtype=torch.float32
     )
+    expert_mask.scatter_(1, expert_indices, 1.0)
 
-    load.scatter_add_(
-        0,
-        indices,
-        torch.ones_like(indices, dtype=probs.dtype),
-    )
+    tokens_per_expert = expert_mask.mean(dim=0)          # [num_experts]
+    router_prob_per_expert = router_probs.mean(dim=0)    # [num_experts]
 
-    load = load / max(indices.numel(), 1)
-
-    return num_experts * torch.sum(importance * load)
+    # The classic formulation from Switch Transformer / Mixtral
+    loss = num_experts * (tokens_per_expert * router_prob_per_expert).sum()
+    return loss

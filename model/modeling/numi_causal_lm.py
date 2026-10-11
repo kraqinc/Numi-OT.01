@@ -6,14 +6,14 @@ import torch
 from torch import Tensor, nn
 from transformers import PreTrainedModel
 
-from architecture.blocks.transformer import NumiTransformerBlock
-from architecture.embeddings.token import NumiLMHead, NumiTokenEmbedding
-from architecture.normalization.rmsnorm import NumiRMSNorm
+from architecture.blocks.transformer import TransformerBlock
+from architecture.embeddings.token import LMHead, TokenEmbedding
+from architecture.normalization.rmsnorm import RMSNorm
 from model.configs.numi_config import NumiConfig
 
 
 @dataclass
-class NumiCausalLMOutput:
+class CausalLMOutput:
     loss: Tensor | None = None
     logits: Tensor | None = None
     hidden_states: Tensor | None = None
@@ -24,33 +24,29 @@ class NumiPreTrainedModel(PreTrainedModel):
     config_class = NumiConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
-    _no_split_modules = ["NumiTransformerBlock"]
+    _no_split_modules = ["TransformerBlock"]
 
     def _init_weights(self, module: nn.Module) -> None:
         std = self.config.initializer_range
-
         if isinstance(module, nn.Linear):
             nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
-
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=std)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
 
 
 class NumiModel(NumiPreTrainedModel):
     """
-    Core Numi transformer.
+    Core Numi transformer (from-scratch design).
 
-    Layout (following Qwen2-MoE / Llama / Mixtral convention):
+    Architecture inspired by:
+    - Llama 3   → attention, RoPE, RMSNorm, residual style
+    - Mixtral   → sparse Mixture-of-Experts
 
-        input_ids
-            ↓
-        Token Embedding
-            ↓
-        [NumiTransformerBlock] × num_hidden_layers
-            ↓
-        Final RMSNorm
+    No code or weights inherited from any existing model.
     """
 
     def __init__(self, config: NumiConfig) -> None:
@@ -59,15 +55,16 @@ class NumiModel(NumiPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = NumiTokenEmbedding(
+        self.embed_tokens = TokenEmbedding(
             vocab_size=config.vocab_size,
             hidden_size=config.hidden_size,
             initializer_range=config.initializer_range,
+            padding_idx=config.pad_token_id,
         )
 
         self.layers = nn.ModuleList(
             [
-                NumiTransformerBlock(
+                TransformerBlock(
                     hidden_size=config.hidden_size,
                     num_attention_heads=config.num_attention_heads,
                     num_key_value_heads=config.num_key_value_heads,
@@ -77,15 +74,14 @@ class NumiModel(NumiPreTrainedModel):
                     rope_theta=config.rope_theta,
                     rms_norm_eps=config.rms_norm_eps,
                     max_position_embeddings=config.max_position_embeddings,
+                    attention_dropout=config.attention_dropout,
+                    router_jitter_noise=config.router_jitter_noise,
                 )
                 for _ in range(config.num_hidden_layers)
             ]
         )
 
-        self.norm = NumiRMSNorm(
-            config.hidden_size,
-            eps=config.rms_norm_eps,
-        )
+        self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False
         self.post_init()
@@ -94,8 +90,6 @@ class NumiModel(NumiPreTrainedModel):
         return self.embed_tokens
 
     def set_input_embeddings(self, value: nn.Module) -> None:
-        if not isinstance(value, NumiTokenEmbedding):
-            raise TypeError("NumiModel requires a NumiTokenEmbedding.")
         self.embed_tokens = value
 
     def forward(
@@ -103,7 +97,6 @@ class NumiModel(NumiPreTrainedModel):
         input_ids: Tensor,
         *,
         attention_mask: Tensor | None = None,
-        position_offset: int = 0,
     ) -> Tensor:
         hidden_states = self.embed_tokens(input_ids)
 
@@ -113,26 +106,16 @@ class NumiModel(NumiPreTrainedModel):
                     layer,
                     hidden_states,
                     attention_mask,
-                    position_offset,
                     use_reentrant=False,
                 )
             else:
-                hidden_states = layer(
-                    hidden_states,
-                    attention_mask=attention_mask,
-                    position_offset=position_offset,
-                )
+                hidden_states = layer(hidden_states, attention_mask=attention_mask)
 
-        hidden_states = self.norm(hidden_states)
-        return hidden_states
+        return self.norm(hidden_states)
 
 
 class NumiForCausalLM(NumiPreTrainedModel):
-    """
-    Causal LM head on top of NumiModel.
-
-    Same interface style as HuggingFace CausalLM models.
-    """
+    """Causal language model head on top of NumiModel."""
 
     _tied_weights_keys = ["lm_head.projection.weight"]
 
@@ -140,11 +123,7 @@ class NumiForCausalLM(NumiPreTrainedModel):
         super().__init__(config)
 
         self.model = NumiModel(config)
-
-        self.lm_head = NumiLMHead(
-            hidden_size=config.hidden_size,
-            vocab_size=config.vocab_size,
-        )
+        self.lm_head = LMHead(config.hidden_size, config.vocab_size)
 
         if config.tie_word_embeddings:
             self.tie_weights()
@@ -161,38 +140,15 @@ class NumiForCausalLM(NumiPreTrainedModel):
         return self.lm_head.projection
 
     def set_output_embeddings(self, new_embeddings: nn.Module) -> None:
-        if not isinstance(new_embeddings, nn.Linear):
-            raise TypeError("Numi LM head requires an nn.Linear projection.")
         self.lm_head.projection = new_embeddings
 
     def tie_weights(self) -> None:
         if not self.config.tie_word_embeddings:
             return
-
-        embedding = self.model.embed_tokens
-        self.lm_head.vocab_size = embedding.vocab_size
-        self.lm_head.hidden_size = embedding.hidden_size
-        self.lm_head.tie_to(embedding)
-
-    def resize_token_embeddings(
-        self,
-        new_num_tokens: int,
-    ) -> NumiTokenEmbedding:
-        if new_num_tokens <= 0:
-            raise ValueError("new_num_tokens must be greater than zero.")
-
-        old_vocab_size = self.config.vocab_size
-
-        self.model.embed_tokens.resize(new_num_tokens)
-        self.lm_head.vocab_size = old_vocab_size
-        self.lm_head.resize(new_num_tokens)
-
-        self.config.vocab_size = new_num_tokens
-
-        if self.config.tie_word_embeddings:
-            self.tie_weights()
-
-        return self.model.embed_tokens
+        emb = self.model.embed_tokens
+        self.lm_head.vocab_size = emb.vocab_size
+        self.lm_head.hidden_size = emb.hidden_size
+        self.lm_head.tie_to(emb)
 
     def forward(
         self,
@@ -200,44 +156,35 @@ class NumiForCausalLM(NumiPreTrainedModel):
         *,
         attention_mask: Tensor | None = None,
         labels: Tensor | None = None,
-        position_offset: int = 0,
-    ) -> NumiCausalLMOutput:
-        hidden_states = self.model(
-            input_ids,
-            attention_mask=attention_mask,
-            position_offset=position_offset,
-        )
-
+    ) -> CausalLMOutput:
+        hidden_states = self.model(input_ids, attention_mask=attention_mask)
         logits = self.lm_head(hidden_states)
 
         loss = None
         if labels is not None:
-            # Shift so that tokens < n predict n
             shift_logits = logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
-
             loss = nn.functional.cross_entropy(
                 shift_logits.view(-1, shift_logits.size(-1)),
                 shift_labels.view(-1),
                 ignore_index=-100,
             )
 
-        # Collect MoE auxiliary loss from all layers (load balancing)
+        # Collect MoE load-balancing loss
         aux_loss = None
         for layer in self.model.layers:
-            if hasattr(layer.moe, "last_aux_loss"):
+            if layer.mlp.last_aux_loss is not None:
                 if aux_loss is None:
-                    aux_loss = layer.moe.last_aux_loss
+                    aux_loss = layer.mlp.last_aux_loss
                 else:
-                    aux_loss = aux_loss + layer.moe.last_aux_loss
+                    aux_loss = aux_loss + layer.mlp.last_aux_loss
 
         if aux_loss is not None and self.training:
-            # Standard scale used in Mixtral / Qwen2-MoE
-            aux_loss = aux_loss * 0.001
+            aux_loss = aux_loss * self.config.aux_loss_coef
             if loss is not None:
                 loss = loss + aux_loss
 
-        return NumiCausalLMOutput(
+        return CausalLMOutput(
             loss=loss,
             logits=logits,
             hidden_states=hidden_states,

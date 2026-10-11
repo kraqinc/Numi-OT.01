@@ -1,3 +1,3 @@
-from .token import NumiLMHead, NumiTokenEmbedding
+from .token import LMHead, TokenEmbedding
 
-__all__ = ["NumiTokenEmbedding", "NumiLMHead"]
+__all__ = ["TokenEmbedding", "LMHead"]

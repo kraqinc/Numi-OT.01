@@ -4,13 +4,8 @@ import torch
 from torch import Tensor, nn
 
 
-class NumiTokenEmbedding(nn.Module):
-    """
-    Token embedding table for Numi-OT.01.
-
-    The embedding can be resized while preserving the existing vocabulary
-    weights. Newly created rows are initialized independently.
-    """
+class TokenEmbedding(nn.Module):
+    """Token embedding table with resize support."""
 
     def __init__(
         self,
@@ -18,15 +13,9 @@ class NumiTokenEmbedding(nn.Module):
         hidden_size: int,
         *,
         initializer_range: float = 0.02,
+        padding_idx: int | None = None,
     ) -> None:
         super().__init__()
-
-        if vocab_size <= 0:
-            raise ValueError("vocab_size must be greater than zero.")
-
-        if hidden_size <= 0:
-            raise ValueError("hidden_size must be greater than zero.")
-
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.initializer_range = initializer_range
@@ -34,16 +23,15 @@ class NumiTokenEmbedding(nn.Module):
         self.embedding = nn.Embedding(
             num_embeddings=vocab_size,
             embedding_dim=hidden_size,
+            padding_idx=padding_idx,
         )
-
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        nn.init.normal_(
-            self.embedding.weight,
-            mean=0.0,
-            std=self.initializer_range,
-        )
+        nn.init.normal_(self.embedding.weight, mean=0.0, std=self.initializer_range)
+        if self.embedding.padding_idx is not None:
+            with torch.no_grad():
+                self.embedding.weight[self.embedding.padding_idx].fill_(0)
 
     @property
     def weight(self) -> nn.Parameter:
@@ -52,69 +40,33 @@ class NumiTokenEmbedding(nn.Module):
     def forward(self, input_ids: Tensor) -> Tensor:
         return self.embedding(input_ids)
 
-    def resize(
-        self,
-        new_vocab_size: int,
-        *,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> NumiTokenEmbedding:
-        if new_vocab_size <= 0:
-            raise ValueError("new_vocab_size must be greater than zero.")
-
+    def resize(self, new_vocab_size: int) -> TokenEmbedding:
         old_weight = self.embedding.weight.data
-
-        new_embedding = nn.Embedding(
-            num_embeddings=new_vocab_size,
-            embedding_dim=self.hidden_size,
-            device=device or old_weight.device,
-            dtype=dtype or old_weight.dtype,
-        )
-
-        nn.init.normal_(
-            new_embedding.weight,
-            mean=0.0,
-            std=self.initializer_range,
-        )
-
-        rows_to_copy = min(
-            old_weight.shape[0],
+        new_emb = nn.Embedding(
             new_vocab_size,
+            self.hidden_size,
+            device=old_weight.device,
+            dtype=old_weight.dtype,
         )
+        nn.init.normal_(new_emb.weight, mean=0.0, std=self.initializer_range)
 
+        n = min(old_weight.shape[0], new_vocab_size)
         with torch.no_grad():
-            new_embedding.weight[:rows_to_copy].copy_(
-                old_weight[:rows_to_copy]
-            )
+            new_emb.weight[:n].copy_(old_weight[:n])
 
-        self.embedding = new_embedding
+        self.embedding = new_emb
         self.vocab_size = new_vocab_size
-
         return self
 
 
-class NumiLMHead(nn.Module):
-    """
-    Vocabulary projection used for causal language modeling.
+class LMHead(nn.Module):
+    """Language modeling head (can share weights with TokenEmbedding)."""
 
-    It can share its weight matrix with NumiTokenEmbedding.
-    """
-
-    def __init__(
-        self,
-        hidden_size: int,
-        vocab_size: int,
-    ) -> None:
+    def __init__(self, hidden_size: int, vocab_size: int) -> None:
         super().__init__()
-
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
-
-        self.projection = nn.Linear(
-            hidden_size,
-            vocab_size,
-            bias=False,
-        )
+        self.projection = nn.Linear(hidden_size, vocab_size, bias=False)
 
     @property
     def weight(self) -> nn.Parameter:
@@ -123,53 +75,28 @@ class NumiLMHead(nn.Module):
     def forward(self, hidden_states: Tensor) -> Tensor:
         return self.projection(hidden_states)
 
-    def tie_to(self, embedding: NumiTokenEmbedding) -> None:
+    def tie_to(self, embedding: TokenEmbedding) -> None:
         if embedding.hidden_size != self.hidden_size:
-            raise ValueError(
-                "Embedding hidden size does not match LM head hidden size."
-            )
-
+            raise ValueError("Hidden size mismatch when tying embeddings")
         if embedding.vocab_size != self.vocab_size:
-            raise ValueError(
-                "Embedding vocabulary size does not match LM head."
-            )
-
+            raise ValueError("Vocab size mismatch when tying embeddings")
         self.projection.weight = embedding.embedding.weight
 
-    def resize(
-        self,
-        new_vocab_size: int,
-        *,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> NumiLMHead:
+    def resize(self, new_vocab_size: int) -> LMHead:
         old_weight = self.projection.weight.data
-
-        new_projection = nn.Linear(
+        new_proj = nn.Linear(
             self.hidden_size,
             new_vocab_size,
             bias=False,
-            device=device or old_weight.device,
-            dtype=dtype or old_weight.dtype,
+            device=old_weight.device,
+            dtype=old_weight.dtype,
         )
+        nn.init.normal_(new_proj.weight, mean=0.0, std=0.02)
 
-        nn.init.normal_(
-            new_projection.weight,
-            mean=0.0,
-            std=old_weight.std().item() if old_weight.numel() else 0.02,
-        )
-
-        rows_to_copy = min(
-            old_weight.shape[0],
-            new_vocab_size,
-        )
-
+        n = min(old_weight.shape[0], new_vocab_size)
         with torch.no_grad():
-            new_projection.weight[:rows_to_copy].copy_(
-                old_weight[:rows_to_copy]
-            )
+            new_proj.weight[:n].copy_(old_weight[:n])
 
-        self.projection = new_projection
+        self.projection = new_proj
         self.vocab_size = new_vocab_size
-
         return self

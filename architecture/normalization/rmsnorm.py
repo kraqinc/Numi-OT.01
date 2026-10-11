@@ -4,35 +4,28 @@ import torch
 from torch import Tensor, nn
 
 
-class NumiRMSNorm(nn.Module):
-    def __init__(
-        self,
-        hidden_size: int,
-        eps: float = 1e-6,
-    ) -> None:
+class RMSNorm(nn.Module):
+    """
+    Root Mean Square Layer Normalization.
+
+    Used by Llama, Mistral, Mixtral, Gemma, etc.
+    More stable and slightly faster than classic LayerNorm.
+    """
+
+    def __init__(self, dim: int, eps: float = 1e-5) -> None:
         super().__init__()
-
-        self.hidden_size = hidden_size
         self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
 
-        self.weight = nn.Parameter(
-            torch.ones(hidden_size)
-        )
+    def forward(self, x: Tensor) -> Tensor:
+        # Compute in float32 for numerical stability
+        input_dtype = x.dtype
+        x = x.float()
 
-    def forward(self, hidden_states: Tensor) -> Tensor:
-        input_dtype = hidden_states.dtype
+        variance = x.pow(2).mean(dim=-1, keepdim=True)
+        x = x * torch.rsqrt(variance + self.eps)
 
-        hidden_states = hidden_states.float()
+        return (self.weight * x).to(input_dtype)
 
-        variance = hidden_states.pow(2).mean(
-            dim=-1,
-            keepdim=True,
-        )
-
-        hidden_states = hidden_states * torch.rsqrt(
-            variance + self.eps
-        )
-
-        return (
-            self.weight * hidden_states
-        ).to(input_dtype)
+    def extra_repr(self) -> str:
+        return f"dim={self.weight.numel()}, eps={self.eps}"

@@ -1,12 +1,12 @@
-from .experts import NumiExpert, NumiExpertBank
+from .experts import Expert, ExpertBank
 from .load_balance import load_balance_loss
-from .moe import NumiMoE
-from .router import NumiRouter
+from .moe import MoE
+from .router import Router
 
 __all__ = [
-    "NumiExpert",
-    "NumiExpertBank",
-    "NumiMoE",
-    "NumiRouter",
+    "Expert",
+    "ExpertBank",
+    "MoE",
+    "Router",
     "load_balance_loss",
 ]

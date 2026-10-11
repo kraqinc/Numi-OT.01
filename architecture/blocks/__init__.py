@@ -1,4 +1,3 @@
-from .mlp import NumiMLP
-from .transformer import NumiTransformerBlock
+from .transformer import TransformerBlock
 
-__all__ = ["NumiMLP", "NumiTransformerBlock"]
+__all__ = ["TransformerBlock"]

@@ -1,3 +1,3 @@
-from .rmsnorm import NumiRMSNorm
+from .rmsnorm import RMSNorm
 
-__all__ = ["NumiRMSNorm"]
+__all__ = ["RMSNorm"]

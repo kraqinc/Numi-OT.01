@@ -1,3 +1,3 @@
-from .rope import apply_rope, build_rope_cache
+from .rope import apply_rotary_emb, precompute_freqs_cis, rotate_half
 
-__all__ = ["build_rope_cache", "apply_rope"]
+__all__ = ["apply_rotary_emb", "precompute_freqs_cis", "rotate_half"]

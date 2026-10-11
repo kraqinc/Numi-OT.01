@@ -6,27 +6,38 @@ from transformers import PretrainedConfig
 
 
 class NumiConfig(PretrainedConfig):
+    """
+    Configuration for Numi-OT.01
+
+    Clean design inspired by Llama 3 (dense backbone) + Mixtral (MoE routing).
+    No external model inheritance.
+    """
+
     model_type = "numi"
 
     def __init__(
         self,
-        vocab_size: int = 151936,
+        vocab_size: int = 128256,
         hidden_size: int = 2048,
-        num_hidden_layers: int = 48,
-        num_attention_heads: int = 32,
+        intermediate_size: int = 8192,
+        moe_intermediate_size: int = 1024,
+        num_hidden_layers: int = 24,
+        num_attention_heads: int = 16,
         num_key_value_heads: int = 4,
-        intermediate_size: int = 6144,
-        moe_intermediate_size: int = 768,
-        num_experts: int = 128,
-        num_experts_per_tok: int = 8,
-        max_position_embeddings: int = 32768,
-        rope_theta: float = 1_000_000.0,
-        rms_norm_eps: float = 1e-6,
+        num_experts: int = 8,
+        num_experts_per_tok: int = 2,
+        max_position_embeddings: int = 8192,
+        rope_theta: float = 500_000.0,
+        rms_norm_eps: float = 1e-5,
         tie_word_embeddings: bool = True,
+        initializer_range: float = 0.02,
+        attention_dropout: float = 0.0,
+        hidden_dropout: float = 0.0,
+        router_jitter_noise: float = 0.0,
+        aux_loss_coef: float = 0.01,
         bos_token_id: int | None = None,
         eos_token_id: int | None = None,
         pad_token_id: int | None = None,
-        initializer_range: float = 0.02,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -39,13 +50,13 @@ class NumiConfig(PretrainedConfig):
 
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
+        self.intermediate_size = intermediate_size
+        self.moe_intermediate_size = moe_intermediate_size
 
         self.num_hidden_layers = num_hidden_layers
         self.num_attention_heads = num_attention_heads
         self.num_key_value_heads = num_key_value_heads
 
-        self.intermediate_size = intermediate_size
-        self.moe_intermediate_size = moe_intermediate_size
         self.num_experts = num_experts
         self.num_experts_per_tok = num_experts_per_tok
 
@@ -54,59 +65,33 @@ class NumiConfig(PretrainedConfig):
         self.rms_norm_eps = rms_norm_eps
 
         self.initializer_range = initializer_range
+        self.attention_dropout = attention_dropout
+        self.hidden_dropout = hidden_dropout
+        self.router_jitter_noise = router_jitter_noise
+        self.aux_loss_coef = aux_loss_coef
 
-        if self.hidden_size % self.num_attention_heads != 0:
+        # validations
+        if hidden_size % num_attention_heads != 0:
             raise ValueError(
-                "hidden_size must be divisible by num_attention_heads."
+                f"hidden_size ({hidden_size}) must be divisible by "
+                f"num_attention_heads ({num_attention_heads})"
             )
-
-        if self.num_attention_heads % self.num_key_value_heads != 0:
+        if num_attention_heads % num_key_value_heads != 0:
             raise ValueError(
-                "num_attention_heads must be divisible by "
-                "num_key_value_heads."
+                f"num_attention_heads ({num_attention_heads}) must be divisible by "
+                f"num_key_value_heads ({num_key_value_heads})"
             )
-
-        if self.num_experts_per_tok > self.num_experts:
+        if num_experts_per_tok > num_experts:
             raise ValueError(
-                "num_experts_per_tok cannot exceed num_experts."
+                f"num_experts_per_tok ({num_experts_per_tok}) cannot exceed "
+                f"num_experts ({num_experts})"
             )
 
     @property
     def head_dim(self) -> int:
         return self.hidden_size // self.num_attention_heads
 
-    @classmethod
-    def from_dict(cls, config_dict: dict[str, Any], **kwargs: Any) -> NumiConfig:
-        return super().from_dict(config_dict, **kwargs)
-
-    @classmethod
-    def from_tokenizer(
-        cls,
-        tokenizer: Any,
-        **kwargs: Any,
-    ) -> NumiConfig:
-        """
-        Build a model configuration using the actual tokenizer vocabulary.
-
-        This is important because Numi adds its own special tokens.
-        """
-        return cls(
-            vocab_size=len(tokenizer),
-            bos_token_id=tokenizer.bos_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-            pad_token_id=tokenizer.pad_token_id,
-            **kwargs,
-        )
-
-    def update_vocab_size(self, vocab_size: int) -> None:
-        if vocab_size <= 0:
-            raise ValueError("vocab_size must be greater than zero.")
-
-        self.vocab_size = int(vocab_size)
-
     def to_dict(self) -> dict[str, Any]:
         output = super().to_dict()
-
         output["model_type"] = self.model_type
-
         return output
