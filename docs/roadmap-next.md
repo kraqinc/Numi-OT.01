@@ -1,22 +1,18 @@
-# Siguientes bloques (prioridad práctica)
+# Roadmap status
 
-Ya hechos en el stack reciente: CI, LoRA, system prompt, Supabase schema/Edge Function, identity data, gradient checkpointing, API key, SSE stream, resume SFT, deploy guide.
+## Done in recent packs
 
-## Próximas 10 (orden sugerido)
+CI, LoRA, system prompt runtime/full, Supabase schema+Edge Function, identity+DPO seeds, gradient checkpointing, API key, SSE, CORS, resume SFT, deploy guide, metrics, rate limit, request logging, concurrency slots, history trim, safetensors export, config validate, identity eval, Makefile, .env.example, model card, contributing.
 
-1. Subir un `final.pt` smoke entrenado y cablearlo en Render
-2. Flutter: cliente que solo llame a `functions/v1/numi-chat`
-3. Rate limit por IP / por user_id en Edge Function
-4. Streaming real token-a-token en `generate()` (no solo chunk de texto)
-5. Logging estructurado (request_id, latency, tokens)
-6. Más corpus SFT (código + español técnico)
-7. Eval automática identity ("What model are you?" → Numi OT)
-8. Multi-turn history truncado por tokens, no por filas
-9. Safetensors export del checkpoint
-10. GPU deploy playbook (RunPod)
+## Still open (product / scale)
 
-## No hacer
-
-- Meter el modelo en Vercel/Netlify
-- Correr PyTorch dentro de Edge Functions
-- Exponer Render sin `NUMI_API_KEY`
+1. Train and host a real `final.pt` on Render
+2. Flutter client → only `numi-chat` function
+3. True token-stream inside `generate()` (yield per step)
+4. Larger bilingual code corpus
+5. GPU RunPod playbook with measured tokens/s
+6. Online eval dashboard
+7. Multi-GPU / FSDP training
+8. Tool-calling protocol end-to-end with backend
+9. Credits metering hooks for Numination billing
+10. Red-team safety eval set

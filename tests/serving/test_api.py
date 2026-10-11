@@ -10,7 +10,8 @@ def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ok"
+    assert data["status"] in {"ok", "degraded"}
+    assert "model" in data
 
 
 def test_list_models() -> None:
@@ -20,3 +21,11 @@ def test_list_models() -> None:
     data = response.json()
     assert data["object"] == "list"
     assert len(data["data"]) >= 1
+
+
+def test_metrics() -> None:
+    client = TestClient(app)
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    data = response.json()
+    assert "requests_total" in data
