@@ -1,0 +1,18 @@
+services:
+  numi-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      NUMI_MODEL_ID: numi-ot-0.1
+      NUMI_DEVICE: cpu
+      NUMI_CONFIG: configs/training/sft.yaml
+      # NUMI_CHECKPOINT: /checkpoints/final.pt
+    volumes:
+      - ./outputs:/app/outputs
+      - ./configs:/app/configs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

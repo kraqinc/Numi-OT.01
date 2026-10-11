@@ -8,114 +8,84 @@ Built from scratch. No weights or architecture copied from external model famili
 
 | Component | Design |
 |-----------|--------|
-| Attention | GQA + RoPE + **SDPA** (Flash when available) + KV-cache |
-| FFN | Sparse MoE (top-k routing, **sorted dispatch**, SwiGLU experts) |
+| Attention | GQA + RoPE + SDPA + KV-cache |
+| FFN | Sparse MoE (top-k, sorted dispatch, SwiGLU) |
 | Norm | RMSNorm |
-| Residual | Pre-norm (Llama-style) |
-
-Default research config (`configs/training/sft.yaml`):
-
-- 4 layers · hidden 512 · 8 heads (GQA 2 KV) · 4 experts (top-2)
-- Context 2048 · vocab 128256
-
-Full production-oriented defaults live in `configs/model/numi.yaml` (24 layers, 2048 hidden, 8 experts).
-
-## Project layout
-
-```
-architecture/     # attention, moe, rope, rmsnorm, blocks
-model/            # NumiConfig, NumiModel, NumiForCausalLM
-tokenizer/        # special tokens, chat template, system prompt
-training/sft/     # supervised fine-tuning loop
-serving/          # FastAPI OpenAI-compatible server
-scripts/          # CLI entrypoints
-datasets/         # conversation seed and future corpora
-configs/          # YAML configs
-tests/            # unit tests
-```
+| Tokenizer | Trainable BPE (`tokenizer/algorithms/bpe.py`) |
 
 ## Quickstart
 
-### Install
-
 ```bash
 pip install -r requirements-dev.txt
+pytest -q tests/architecture tests/tokenizer tests/training tests/serving tests/evaluation
 ```
 
-### Run tests
+### Train tokenizer (BPE)
 
 ```bash
-pytest -q tests/architecture tests/tokenizer tests/inference tests/training tests/serving
+python scripts/tokenizer/train_tokenizer.py \
+  --data datasets/2026/numi_conversation_seed.jsonl \
+  --output artifacts/tokenizer \
+  --vocab-size 4000
 ```
 
-### Supervised fine-tuning
+### SFT
 
 ```bash
 python scripts/training/train_sft.py --config configs/training/sft.yaml --device cpu
+```
+
+### DPO (preferences)
+
+```bash
+python scripts/training/train_dpo.py --config configs/training/dpo.yaml --device cpu
+```
+
+### Evaluate
+
+```bash
+python scripts/evaluation/evaluate.py --device cpu
 ```
 
 ### Generate
 
 ```bash
 python scripts/generate.py --prompt "Hola" --max-new-tokens 16 --device cpu
-
-python scripts/generate.py \
-  --checkpoint outputs/sft/final.pt \
-  --prompt "¿Qué puedes hacer?" \
-  --max-new-tokens 32
 ```
 
-### API server (OpenAI-compatible)
+### API
 
 ```bash
-# optional: export NUMI_CHECKPOINT=outputs/sft/final.pt
-python scripts/serve.py --host 0.0.0.0 --port 8000
+python scripts/serve.py --port 8000
+# or
+docker compose up --build
 ```
 
 ```bash
-curl http://localhost:8000/health
-
 curl http://localhost:8000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{
-    "model": "numi-ot-0.1",
-    "messages": [{"role": "user", "content": "Hola"}],
-    "max_tokens": 32
-  }'
+  -d '{"model":"numi-ot-0.1","messages":[{"role":"user","content":"Hola"}],"max_tokens":32}'
 ```
 
-Endpoints:
-
-- `GET /health`
-- `GET /v1/models`
-- `POST /v1/chat/completions`
-- `POST /v1/chat`
-
-## Chat format
+## Layout
 
 ```
-<|numi_bos|>
-<|numi_system|>
-{system}
-<|numi_eos|>
-<|numi_user|>
-{user}
-<|numi_eos|>
-<|numi_assistant|>
+architecture/  model/  tokenizer/  training/  serving/
+evaluation/  datasets/  configs/  scripts/  tests/
+Dockerfile  docker-compose.yml
 ```
 
 ## Status
 
-- [x] Core MoE transformer
-- [x] KV-cache + `generate()`
-- [x] SDPA attention path
+- [x] MoE transformer + KV-cache + SDPA
 - [x] Sorted MoE dispatch
-- [x] Tokenizer contract + chat template
-- [x] Minimal SFT loop
-- [x] OpenAI-compatible API
-- [ ] Trained tokenizer artifact
-- [ ] Full CPT on FineWeb-scale data
-- [ ] Alignment (DPO/ORPO)
+- [x] SFT loop
+- [x] Trainable BPE tokenizer
+- [x] Minimal DPO
+- [x] Smoke evaluation (perplexity)
+- [x] OpenAI-compatible API + Docker
+- [ ] Large-scale CPT
+- [ ] Production tokenizer trained on full corpus
 
 ## License
 
