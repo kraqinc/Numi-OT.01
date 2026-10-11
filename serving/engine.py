@@ -12,6 +12,7 @@ from model.modeling.numi_causal_lm import NumiForCausalLM
 from tokenizer.factory import load_tokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
 from tokenizer.templates.chat import NumiChatTemplate
+from tokenizer.templates.system import ensure_system_message
 
 
 @dataclass
@@ -86,7 +87,11 @@ class NumiEngine:
         temperature: float = 0.7,
         top_p: float = 0.9,
         top_k: int | None = 50,
+        inject_system: bool = True,
     ) -> GenerationResult:
+        if inject_system:
+            messages = ensure_system_message(messages, mode="runtime")
+
         prompt = self.template.render(messages, add_generation_prompt=True)
         max_length = int(self.config.get("data", {}).get("max_seq_length", 512))
         prompt_ids = self.tokenizer.encode(prompt, max_length=max_length)
