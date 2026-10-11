@@ -26,7 +26,8 @@ class Attention(nn.Module):
     """
     Multi-head attention with GQA + RoPE + KV-cache.
 
-    Inspired by Llama 3 / Mistral attention design.
+    Uses PyTorch SDPA (FlashAttention / memory-efficient kernels when available).
+    Falls back to a manual path only if SDPA is unavailable.
     """
 
     def __init__(
@@ -71,7 +72,6 @@ class Attention(nn.Module):
             theta=self.rope_theta,
             device=device,
         )
-        # Expand to full head_dim for broadcasting
         cos = torch.cat((cos, cos), dim=-1)
         sin = torch.cat((sin, sin), dim=-1)
         self.cos_cached = cos
@@ -86,17 +86,6 @@ class Attention(nn.Module):
         use_cache: bool = False,
         position_offset: int = 0,
     ) -> tuple[Tensor, KVCache | None]:
-        """
-        Args:
-            hidden_states:   [batch, seq_len, hidden_size]
-            attention_mask:  optional additive mask
-            past_key_value:  previous KV cache (for generation)
-            use_cache:       whether to return an updated cache
-            position_offset: starting position for RoPE (when using cache)
-
-        Returns:
-            (attn_output, updated_cache or None)
-        """
         bsz, seq_len, _ = hidden_states.shape
 
         query = self.q_proj(hidden_states)
@@ -107,7 +96,7 @@ class Attention(nn.Module):
         key = key.view(bsz, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
         value = value.view(bsz, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
 
-        # ----- RoPE -----
+        # RoPE
         total_len = position_offset + seq_len
         if self.cos_cached is None or self.cos_cached.shape[0] < total_len:
             self._build_rope_cache(
@@ -121,44 +110,58 @@ class Attention(nn.Module):
         query = apply_rotary_emb(query, cos, sin)
         key = apply_rotary_emb(key, cos, sin)
 
-        # ----- KV cache -----
+        # KV cache
         if past_key_value is not None:
             key, value = past_key_value.update(key, value)
         elif use_cache:
             past_key_value = KVCache()
             key, value = past_key_value.update(key, value)
 
-        # GQA: expand KV heads
         key = repeat_kv(key, self.num_key_value_groups)
         value = repeat_kv(value, self.num_key_value_groups)
 
-        # ----- Attention scores -----
-        attn_weights = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(
-            self.head_dim
-        )
+        # Prefer SDPA (Flash / mem-efficient / math backends)
+        dropout_p = self.attention_dropout if self.training else 0.0
 
-        # Causal mask (only needed when seq_len > 1, i.e. prefill)
-        if seq_len > 1:
-            kv_len = key.shape[2]
-            causal_mask = torch.triu(
-                torch.ones(seq_len, kv_len, device=hidden_states.device, dtype=torch.bool),
-                diagonal=1 + (kv_len - seq_len),
+        # is_causal only valid when query/key lengths match and we are not
+        # using an external additive mask. For cached decode (q_len=1) SDPA
+        # still works without a causal mask.
+        is_causal = seq_len > 1 and attention_mask is None
+
+        try:
+            attn_output = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=attention_mask,
+                dropout_p=dropout_p,
+                is_causal=is_causal,
             )
-            attn_weights = attn_weights.masked_fill(
-                causal_mask, torch.finfo(attn_weights.dtype).min
+        except (RuntimeError, TypeError):
+            # Manual fallback
+            attn_weights = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(
+                self.head_dim
             )
+            if seq_len > 1:
+                kv_len = key.shape[2]
+                causal_mask = torch.triu(
+                    torch.ones(
+                        seq_len, kv_len, device=hidden_states.device, dtype=torch.bool
+                    ),
+                    diagonal=1 + (kv_len - seq_len),
+                )
+                attn_weights = attn_weights.masked_fill(
+                    causal_mask, torch.finfo(attn_weights.dtype).min
+                )
+            if attention_mask is not None:
+                attn_weights = attn_weights + attention_mask
+            attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32).to(
+                query.dtype
+            )
+            if dropout_p > 0.0:
+                attn_weights = F.dropout(attn_weights, p=dropout_p)
+            attn_output = torch.matmul(attn_weights, value)
 
-        if attention_mask is not None:
-            attn_weights = attn_weights + attention_mask
-
-        attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32).to(
-            query.dtype
-        )
-
-        if self.attention_dropout > 0.0 and self.training:
-            attn_weights = F.dropout(attn_weights, p=self.attention_dropout)
-
-        attn_output = torch.matmul(attn_weights, value)
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.reshape(bsz, seq_len, self.hidden_size)
 
