@@ -1,0 +1,49 @@
+name: Test Serving
+
+on:
+  push:
+    paths:
+      - 'serving/**'
+      - 'tests/serving/**'
+      - '.github/workflows/test-serving.yml'
+  pull_request:
+    paths:
+      - 'serving/**'
+      - 'tests/serving/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-serving-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  serving:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-ci.txt
+            pyproject.toml
+
+      - name: Install CPU PyTorch + deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-ci.txt
+          pip install -e .
+
+      - name: Run serving tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest tests/serving -q --tb=short

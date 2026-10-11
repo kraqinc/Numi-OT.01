@@ -1,0 +1,17 @@
+# Minimal deps for GitHub Actions (CPU-only, fast install)
+# Install torch first from the CPU wheel index in the workflow.
+
+transformers>=4.45.0
+accelerate>=1.0.0
+safetensors>=0.4.0
+numpy>=1.26.0
+pyyaml>=6.0
+tqdm>=4.66.0
+orjson>=3.10.0
+datasets>=3.0.0
+pytest>=8.0.0
+ruff>=0.6.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+httpx>=0.27.0

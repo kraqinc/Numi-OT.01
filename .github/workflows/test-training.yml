@@ -1,0 +1,51 @@
+name: Test Training
+
+on:
+  push:
+    paths:
+      - 'training/**'
+      - 'tests/training/**'
+      - 'datasets/**'
+      - 'configs/training/**'
+      - '.github/workflows/test-training.yml'
+  pull_request:
+    paths:
+      - 'training/**'
+      - 'tests/training/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-training-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-ci.txt
+            pyproject.toml
+
+      - name: Install CPU PyTorch + deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-ci.txt
+          pip install -e .
+
+      - name: Run training tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest tests/training -q --tb=short

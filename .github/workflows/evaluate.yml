@@ -2,13 +2,23 @@ name: Evaluate Numi-OT.01
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'evaluation/**'
+      - 'tests/evaluation/**'
+      - '.github/workflows/evaluate.yml'
 
 permissions:
   contents: read
 
+concurrency:
+  group: evaluate-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   evaluation:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -18,13 +28,18 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+            requirements-ci.txt
+            pyproject.toml
 
-      - name: Install dependencies
+      - name: Install CPU PyTorch + deps
         run: |
-          pip install -r requirements-dev.txt
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-ci.txt
+          pip install -e .
 
       - name: Run evaluation tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest -q tests/inference || true
+          pytest tests/evaluation -q --tb=short
