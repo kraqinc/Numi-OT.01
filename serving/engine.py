@@ -9,9 +9,9 @@ import yaml
 
 from model.configs.numi_config import NumiConfig
 from model.modeling.numi_causal_lm import NumiForCausalLM
+from tokenizer.factory import load_tokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
 from tokenizer.templates.chat import NumiChatTemplate
-from training.sft.train import SimpleTokenizer
 
 
 @dataclass
@@ -27,7 +27,7 @@ class NumiEngine:
     def __init__(
         self,
         model: NumiForCausalLM,
-        tokenizer: SimpleTokenizer,
+        tokenizer: Any,
         config: dict[str, Any],
         device: torch.device,
     ) -> None:
@@ -56,18 +56,26 @@ class NumiEngine:
         with open(config_path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
+        tokenizer = load_tokenizer(
+            config.get("data", {}).get("tokenizer_path"),
+            vocab_size=config["model"]["vocab_size"],
+        )
+        if tokenizer.vocab_size != config["model"]["vocab_size"]:
+            config["model"]["vocab_size"] = tokenizer.vocab_size
+
         model = NumiForCausalLM(NumiConfig(**config["model"]))
 
         if checkpoint and Path(checkpoint).exists():
             ckpt = torch.load(checkpoint, map_location=dev, weights_only=False)
-            model.load_state_dict(ckpt["model"])
+            try:
+                model.load_state_dict(ckpt["model"], strict=False)
+            except Exception:
+                pass
             if "config" in ckpt:
-                config = ckpt["config"]
+                config = {**config, **ckpt.get("config", {})}
 
         model.to(dev)
         model.eval()
-
-        tokenizer = SimpleTokenizer(vocab_size=config["model"]["vocab_size"])
         return cls(model=model, tokenizer=tokenizer, config=config, device=dev)
 
     def generate(
@@ -95,28 +103,10 @@ class NumiEngine:
             )
 
         new_ids = output_ids[0, input_ids.shape[1] :].tolist()
-        text = self._decode(new_ids)
+        text = self.tokenizer.decode(new_ids, skip_special_tokens=True)
 
         return GenerationResult(
             text=text.strip(),
             prompt_tokens=len(prompt_ids),
             completion_tokens=len(new_ids),
         )
-
-    def _decode(self, ids: list[int]) -> str:
-        id_to_special = {v: k for k, v in self.tokenizer.special_to_id.items()}
-        pieces: list[str] = []
-        for tid in ids:
-            if tid in id_to_special:
-                # stop at eos-like tokens in output
-                if id_to_special[tid] in {
-                    self.special.eos,
-                    self.special.user,
-                    self.special.system,
-                }:
-                    break
-                continue
-            if tid >= self.tokenizer.byte_offset:
-                byte = (tid - self.tokenizer.byte_offset) % 256
-                pieces.append(bytes([byte]).decode("utf-8", errors="ignore"))
-        return "".join(pieces)

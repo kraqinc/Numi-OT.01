@@ -11,36 +11,40 @@ import yaml
 
 from model.configs.numi_config import NumiConfig
 from model.modeling.numi_causal_lm import NumiForCausalLM
+from tokenizer.factory import load_tokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
 from tokenizer.templates.chat import NumiChatTemplate
-from training.sft.train import SimpleTokenizer
 
 
 def load_model(
     checkpoint: str | None,
     config_path: str | None,
     device: torch.device,
-) -> tuple[NumiForCausalLM, dict]:
-    if checkpoint:
+) -> tuple[NumiForCausalLM, dict, object]:
+    if config_path is None:
+        config_path = "configs/training/sft.yaml"
+    with open(config_path, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    tokenizer = load_tokenizer(
+        config.get("data", {}).get("tokenizer_path"),
+        vocab_size=config["model"]["vocab_size"],
+    )
+    if tokenizer.vocab_size != config["model"]["vocab_size"]:
+        config["model"]["vocab_size"] = tokenizer.vocab_size
+
+    model = NumiForCausalLM(NumiConfig(**config["model"]))
+
+    if checkpoint and Path(checkpoint).exists():
         ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
-        config = ckpt.get("config")
-        if config is None and config_path:
-            with open(config_path, encoding="utf-8") as f:
-                config = yaml.safe_load(f)
-        if config is None:
-            raise ValueError("Checkpoint has no config and --config was not provided")
-        model = NumiForCausalLM(NumiConfig(**config["model"]))
-        model.load_state_dict(ckpt["model"])
-    else:
-        if config_path is None:
-            config_path = "configs/training/sft.yaml"
-        with open(config_path, encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-        model = NumiForCausalLM(NumiConfig(**config["model"]))
+        try:
+            model.load_state_dict(ckpt["model"], strict=False)
+        except Exception:
+            pass
 
     model.to(device)
     model.eval()
-    return model, config
+    return model, config, tokenizer
 
 
 def main() -> None:
@@ -62,8 +66,7 @@ def main() -> None:
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model, config = load_model(args.checkpoint, args.config, device)
-    tokenizer = SimpleTokenizer(vocab_size=config["model"]["vocab_size"])
+    model, config, tokenizer = load_model(args.checkpoint, args.config, device)
     special = NumiSpecialTokens()
     template = NumiChatTemplate.from_special_tokens(special)
 
@@ -87,23 +90,8 @@ def main() -> None:
             top_p=args.top_p,
         )
 
-    # Naive decode: map byte ids back when possible
-    ids = output_ids[0].tolist()
-    pieces: list[str] = []
-    id_to_special = {v: k for k, v in tokenizer.special_to_id.items()}
-    for tid in ids:
-        if tid in id_to_special:
-            pieces.append(id_to_special[tid])
-        elif tid >= tokenizer.byte_offset:
-            byte = (tid - tokenizer.byte_offset) % 256
-            try:
-                pieces.append(bytes([byte]).decode("utf-8", errors="ignore"))
-            except Exception:
-                pieces.append("?")
-        else:
-            pieces.append("")
-
-    print("".join(pieces))
+    new_ids = output_ids[0, input_ids.shape[1] :].tolist()
+    print(tokenizer.decode(new_ids, skip_special_tokens=True))
 
 
 if __name__ == "__main__":

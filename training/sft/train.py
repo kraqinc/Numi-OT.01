@@ -13,8 +13,20 @@ from torch.utils.data import DataLoader, Dataset
 
 from model.configs.numi_config import NumiConfig
 from model.modeling.numi_causal_lm import NumiForCausalLM
+from tokenizer.factory import SimpleTokenizer, load_tokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
 from tokenizer.templates.chat import NumiChatTemplate
+
+# Re-export for older imports
+__all__ = [
+    "ConversationDataset",
+    "SimpleTokenizer",
+    "SFTExample",
+    "build_model",
+    "collate_fn",
+    "get_device",
+    "train",
+]
 
 
 @dataclass
@@ -52,70 +64,16 @@ class ConversationDataset(Dataset):
         return self.examples[index]
 
 
-class SimpleTokenizer:
-    """
-    Minimal deterministic tokenizer for smoke SFT runs.
-
-    Maps UTF-8 bytes + special tokens into a fixed vocab.
-    Replace with a real trained Numi tokenizer when available.
-    """
-
-    def __init__(self, vocab_size: int = 128256) -> None:
-        self.special = NumiSpecialTokens()
-        self.special_list = list(self.special.all())
-        self.vocab_size = max(vocab_size, 256 + len(self.special_list) + 8)
-        self.pad_id = 0
-        self.unk_id = 1
-        self.special_to_id = {
-            tok: 2 + i for i, tok in enumerate(self.special_list)
-        }
-        self.byte_offset = 2 + len(self.special_list)
-
-    def encode(self, text: str, max_length: int) -> list[int]:
-        ids: list[int] = []
-        i = 0
-        while i < len(text):
-            matched = False
-            for tok, tid in self.special_to_id.items():
-                if text.startswith(tok, i):
-                    ids.append(tid)
-                    i += len(tok)
-                    matched = True
-                    break
-            if matched:
-                continue
-            b = text[i].encode("utf-8")
-            for byte in b:
-                ids.append(self.byte_offset + (byte % 256))
-            i += 1
-            if len(ids) >= max_length:
-                break
-        return ids[:max_length]
-
-    def pad_batch(
-        self, sequences: list[list[int]], max_length: int
-    ) -> tuple[Tensor, Tensor]:
-        batch = []
-        labels = []
-        for seq in sequences:
-            padded = seq + [self.pad_id] * (max_length - len(seq))
-            label = seq + [-100] * (max_length - len(seq))
-            batch.append(padded[:max_length])
-            labels.append(label[:max_length])
-        return (
-            torch.tensor(batch, dtype=torch.long),
-            torch.tensor(labels, dtype=torch.long),
-        )
-
-
 def collate_fn(
     examples: list[SFTExample],
-    tokenizer: SimpleTokenizer,
+    tokenizer: Any,
     max_length: int,
 ) -> dict[str, Tensor]:
     sequences = [tokenizer.encode(ex.text, max_length=max_length) for ex in examples]
-    # Ensure at least length 2 for causal LM shift
-    sequences = [seq if len(seq) >= 2 else seq + [tokenizer.pad_id] for seq in sequences]
+    sequences = [
+        seq if len(seq) >= 2 else seq + [getattr(tokenizer, "pad_id", 0)]
+        for seq in sequences
+    ]
     max_len = min(max_length, max(len(s) for s in sequences))
     input_ids, labels = tokenizer.pad_batch(sequences, max_len)
     return {"input_ids": input_ids, "labels": labels}
@@ -130,8 +88,7 @@ def get_device(name: str = "auto") -> torch.device:
 
 
 def build_model(cfg: dict[str, Any]) -> NumiForCausalLM:
-    model_cfg = NumiConfig(**cfg["model"])
-    return NumiForCausalLM(model_cfg)
+    return NumiForCausalLM(NumiConfig(**cfg["model"]))
 
 
 def train(config: dict[str, Any]) -> Path:
@@ -146,7 +103,18 @@ def train(config: dict[str, Any]) -> Path:
         config["data"]["path"],
         max_length=config["data"]["max_seq_length"],
     )
-    tokenizer = SimpleTokenizer(vocab_size=config["model"]["vocab_size"])
+
+    tokenizer = load_tokenizer(
+        config["data"].get("tokenizer_path"),
+        vocab_size=config["model"]["vocab_size"],
+    )
+    # Keep model vocab in sync with tokenizer when BPE is smaller
+    if tokenizer.vocab_size != config["model"]["vocab_size"]:
+        print(
+            f"Adjusting model vocab_size {config['model']['vocab_size']} "
+            f"→ {tokenizer.vocab_size} to match tokenizer"
+        )
+        config["model"]["vocab_size"] = tokenizer.vocab_size
 
     loader = DataLoader(
         dataset,
@@ -182,6 +150,7 @@ def train(config: dict[str, Any]) -> Path:
     optimizer.zero_grad(set_to_none=True)
 
     print(f"Device: {device}")
+    print(f"Tokenizer: {type(tokenizer).__name__} (vocab={tokenizer.vocab_size})")
     print(f"Examples: {len(dataset)}")
     print(f"Steps: {total_steps}")
     print(f"Params: {sum(p.numel() for p in model.parameters()):,}")
@@ -227,6 +196,14 @@ def train(config: dict[str, Any]) -> Path:
                     print(f"Saved {ckpt}")
 
     final_path = output_dir / "final.pt"
-    torch.save({"model": model.state_dict(), "config": config, "step": global_step}, final_path)
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "config": config,
+            "step": global_step,
+            "tokenizer_path": config["data"].get("tokenizer_path"),
+        },
+        final_path,
+    )
     print(f"Training complete → {final_path}")
     return final_path
