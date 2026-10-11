@@ -1,0 +1,8 @@
+# Serving stack (optional — install only when deploying)
+# Note: pin torch to the version required by the chosen vLLM release.
+-r requirements.txt
+
+vllm>=0.6.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0

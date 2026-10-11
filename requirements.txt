@@ -1,17 +1,10 @@
-torch==2.14.0
-transformers==5.17.0
-accelerate>=1.10.0
-safetensors==0.8.0
-vllm==0.29.0
-fastapi
-uvicorn[standard]
-pydantic
-datasets==5.0.1
-pyyaml
-numpy
-pytest
-datasets>=4.8.4
-datatrove==0.10.0
-orjson==3.12.0
-PyYAML
-tqdm
+# Core dependencies for Numi-OT.01 (training + inference without vLLM)
+torch>=2.4.0,<2.14.0
+transformers>=4.45.0
+accelerate>=1.0.0
+safetensors>=0.4.0
+numpy>=1.26.0
+pyyaml>=6.0
+tqdm>=4.66.0
+orjson>=3.10.0
+datasets>=3.0.0

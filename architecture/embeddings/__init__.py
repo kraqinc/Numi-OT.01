@@ -1,3 +1,12 @@
 from .token import LMHead, TokenEmbedding
 
-__all__ = ["TokenEmbedding", "LMHead"]
+# Aliases for backward compatibility with older imports
+NumiTokenEmbedding = TokenEmbedding
+NumiLMHead = LMHead
+
+__all__ = [
+    "TokenEmbedding",
+    "LMHead",
+    "NumiTokenEmbedding",
+    "NumiLMHead",
+]

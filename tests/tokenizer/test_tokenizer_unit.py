@@ -10,8 +10,9 @@ def test_tokenizer_config() -> None:
     config = NumiTokenizerConfig()
 
     assert config.name == "Numi-OT.01"
-    assert config.base_tokenizer == "Qwen/Qwen3-30B-A3B-Base"
+    assert config.base_tokenizer is None
     assert config.revision == "main"
+    assert config.target_vocab_size == 128256
 
 
 def test_special_tokens() -> None:
@@ -23,13 +24,11 @@ def test_special_tokens() -> None:
     assert tokens.user != tokens.assistant
     assert tokens.assistant != tokens.tool
     assert tokens.tool != tokens.tool_result
+    assert len(tokens.all()) >= 8
 
 
 def test_message_validation() -> None:
-    message = NumiMessage(
-        role="user",
-        content="Hola Numi",
-    )
+    message = NumiMessage(role="user", content="Hola Numi")
 
     assert message.role == "user"
     assert message.content == "Hola Numi"
@@ -37,19 +36,12 @@ def test_message_validation() -> None:
 
 def test_chat_template_render() -> None:
     tokens = NumiSpecialTokens()
-
     template = NumiChatTemplate.from_special_tokens(tokens)
 
     prompt = template.render(
         [
-            {
-                "role": "system",
-                "content": "You are Numi.",
-            },
-            {
-                "role": "user",
-                "content": "Hola",
-            },
+            {"role": "system", "content": "You are Numi."},
+            {"role": "user", "content": "Hola"},
         ]
     )
 
@@ -58,46 +50,31 @@ def test_chat_template_render() -> None:
     assert tokens.user in prompt
     assert tokens.assistant in prompt
     assert tokens.eos in prompt
-
     assert prompt.endswith(f"{tokens.assistant}\n")
 
 
 def test_chat_template_without_generation_prompt() -> None:
     tokens = NumiSpecialTokens()
-
     template = NumiChatTemplate.from_special_tokens(tokens)
 
     prompt = template.render(
-        [
-            {
-                "role": "user",
-                "content": "Prueba",
-            }
-        ],
+        [{"role": "user", "content": "Prueba"}],
         add_generation_prompt=False,
     )
 
     assert tokens.user in prompt
     assert tokens.eos in prompt
-
     assert not prompt.endswith(f"{tokens.assistant}\n")
 
 
 def test_chat_template_with_dataclass_messages() -> None:
     tokens = NumiSpecialTokens()
-
     template = NumiChatTemplate.from_special_tokens(tokens)
 
     prompt = template.render(
         [
-            NumiMessage(
-                role="user",
-                content="¿Qué puedes hacer?",
-            ),
-            NumiMessage(
-                role="assistant",
-                content="Puedo ayudarte.",
-            ),
+            NumiMessage(role="user", content="¿Qué puedes hacer?"),
+            NumiMessage(role="assistant", content="Puedo ayudarte."),
         ]
     )
 
