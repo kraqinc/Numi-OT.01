@@ -9,15 +9,16 @@ import torch
 from evaluation.metrics.perplexity import corpus_perplexity
 from model.configs.numi_config import NumiConfig
 from model.modeling.numi_causal_lm import NumiForCausalLM
-from tokenizer.templates.chat import NumiChatTemplate
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
+from tokenizer.templates.chat import NumiChatTemplate
 from training.sft.train import SimpleTokenizer
 
 
 @dataclass
 class SmokeReport:
     perplexity: float
-    identity_ok: bool
+    identity_ok: bool | None
+    identity_note: str
     samples: list[str]
 
 
@@ -27,7 +28,9 @@ def run_smoke_eval(
     checkpoint: str | None = None,
     device: str = "cpu",
 ) -> SmokeReport:
-    dev = torch.device(device if device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu"))
+    dev = torch.device(
+        device if device != "auto" else ("cuda" if torch.cuda.is_available() else "cpu")
+    )
 
     config = NumiConfig(
         vocab_size=512,
@@ -42,11 +45,18 @@ def run_smoke_eval(
         max_position_embeddings=128,
     )
     model = NumiForCausalLM(config).to(dev)
+    trained = False
     if checkpoint and Path(checkpoint).exists():
-        state = torch.load(checkpoint, map_location=dev, weights_only=False)
-        # only load if shapes match; otherwise keep random for smoke
         try:
-            model.load_state_dict(state["model"], strict=False)
+            state = torch.load(checkpoint, map_location=dev, weights_only=True)
+        except Exception:
+            state = torch.load(checkpoint, map_location=dev, weights_only=False)
+        try:
+            model.load_state_dict(
+                state["model"] if isinstance(state, dict) and "model" in state else state,
+                strict=False,
+            )
+            trained = True
         except Exception:
             pass
     model.eval()
@@ -62,14 +72,13 @@ def run_smoke_eval(
                 break
             row = json.loads(line)
             text = template.render(row["messages"], add_generation_prompt=False)
-            ids = tokenizer.encode(text, max_length=64)
+            ids = tokenizer.encode(text, max_length=64, allow_special=True)
             if len(ids) < 2:
                 continue
             batches.append(torch.tensor([ids], dtype=torch.long, device=dev))
 
     ppl = corpus_perplexity(model, batches)
 
-    # Identity heuristic: generate after a fixed prompt and look for "Numi"
     prompt = template.render(
         [
             {"role": "system", "content": "You are Numi, the AI assistant of Numination."},
@@ -78,20 +87,34 @@ def run_smoke_eval(
         add_generation_prompt=True,
     )
     input_ids = torch.tensor(
-        [tokenizer.encode(prompt, max_length=64)], dtype=torch.long, device=dev
+        [tokenizer.encode(prompt, max_length=64, allow_special=True)],
+        dtype=torch.long,
+        device=dev,
     )
     with torch.no_grad():
         out = model.generate(input_ids, max_new_tokens=16, temperature=0.8)
 
-    # Decode roughly
     pieces: list[str] = []
     id_to_special = {v: k for k, v in tokenizer.special_to_id.items()}
     for tid in out[0].tolist():
         if tid in id_to_special:
             continue
         if tid >= tokenizer.byte_offset:
-            pieces.append(bytes([(tid - tokenizer.byte_offset) % 256]).decode("utf-8", errors="ignore"))
+            pieces.append(
+                bytes([(tid - tokenizer.byte_offset) % 256]).decode("utf-8", errors="ignore")
+            )
     sample = "".join(pieces)
-    identity_ok = "numi" in sample.lower() or True  # soft check for untrained models
 
-    return SmokeReport(perplexity=ppl, identity_ok=identity_ok, samples=[sample[:200]])
+    if not trained:
+        identity_ok = None
+        identity_note = "identity not validated (untrained / random weights)"
+    else:
+        identity_ok = "numi" in sample.lower()
+        identity_note = "checked sample for 'numi'" if identity_ok else "sample missing 'numi'"
+
+    return SmokeReport(
+        perplexity=ppl,
+        identity_ok=identity_ok,
+        identity_note=identity_note,
+        samples=[sample[:200]],
+    )

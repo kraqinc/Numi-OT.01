@@ -53,15 +53,19 @@ def load_checkpoint(
     map_location: str | torch.device = "cpu",
 ) -> dict[str, Any]:
     path = Path(path)
-    payload = torch.load(path, map_location=map_location, weights_only=False)
-    model_sd = payload.get("model", payload)
+    try:
+        payload = torch.load(path, map_location=map_location, weights_only=True)
+    except Exception:
+        # Trusted local training artifacts may include config/optimizer metadata
+        payload = torch.load(path, map_location=map_location, weights_only=False)
+    model_sd = payload.get("model", payload) if isinstance(payload, dict) else payload
     missing, unexpected = model.load_state_dict(model_sd, strict=strict)
-    if optimizer is not None and "optimizer" in payload:
+    if optimizer is not None and isinstance(payload, dict) and "optimizer" in payload:
         optimizer.load_state_dict(payload["optimizer"])
     return {
-        "step": payload.get("step", 0),
-        "config": payload.get("config", {}),
+        "step": payload.get("step", 0) if isinstance(payload, dict) else 0,
+        "config": payload.get("config", {}) if isinstance(payload, dict) else {},
         "missing": missing,
         "unexpected": unexpected,
-        "lora_only": payload.get("lora_only", False),
+        "lora_only": payload.get("lora_only", False) if isinstance(payload, dict) else False,
     }

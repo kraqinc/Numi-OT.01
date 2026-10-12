@@ -22,9 +22,16 @@ class GenerationResult:
     completion_tokens: int
 
 
-class NumiEngine:
-    """Lightweight inference engine for the Numi FastAPI server."""
+def _safe_torch_load(path: str | Path, map_location: Any) -> Any:
+    """Prefer weights_only=True; fall back only for trusted local training artifacts."""
+    try:
+        return torch.load(path, map_location=map_location, weights_only=True)
+    except Exception:
+        # Training checkpoints may contain non-tensor metadata (config dict)
+        return torch.load(path, map_location=map_location, weights_only=False)
 
+
+class NumiEngine:
     def __init__(
         self,
         model: NumiForCausalLM,
@@ -67,13 +74,14 @@ class NumiEngine:
         model = NumiForCausalLM(NumiConfig(**config["model"]))
 
         if checkpoint and Path(checkpoint).exists():
-            ckpt = torch.load(checkpoint, map_location=dev, weights_only=False)
+            ckpt = _safe_torch_load(checkpoint, map_location=dev)
+            state = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
             try:
-                model.load_state_dict(ckpt["model"], strict=False)
+                model.load_state_dict(state, strict=False)
             except Exception:
                 pass
-            if "config" in ckpt:
-                config = {**config, **ckpt.get("config", {})}
+            if isinstance(ckpt, dict) and "config" in ckpt:
+                config = {**config, **(ckpt.get("config") or {})}
 
         model.to(dev)
         model.eval()
@@ -90,11 +98,12 @@ class NumiEngine:
         inject_system: bool = True,
     ) -> GenerationResult:
         if inject_system:
-            messages = ensure_system_message(messages, mode="runtime")
+            messages = ensure_system_message(messages, mode="runtime", force_server_system=True)
 
         prompt = self.template.render(messages, add_generation_prompt=True)
         max_length = int(self.config.get("data", {}).get("max_seq_length", 512))
-        prompt_ids = self.tokenizer.encode(prompt, max_length=max_length)
+        # Trusted template string may include specials
+        prompt_ids = self.tokenizer.encode(prompt, max_length=max_length, allow_special=True)
 
         input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=self.device)
 

@@ -3,24 +3,24 @@ services:
     build: .
     ports:
       - "8000:8000"
-    env_file:
-      - .env.example
     environment:
+      NUMI_ENV: development
       NUMI_MODEL_ID: numi-ot-0.1
       NUMI_DEVICE: cpu
       NUMI_CONFIG: configs/training/sft.yaml
       NUMI_WARMUP: "1"
       NUMI_MAX_CONCURRENT: "2"
       NUMI_RATE_LIMIT_RPM: "60"
-      # NUMI_API_KEY: set in real deploy
+      NUMI_CORS_ORIGINS: http://localhost:3000
+      # Set a real key in production: NUMI_API_KEY
       # NUMI_CHECKPOINT: /app/outputs/sft/final.pt
     volumes:
-      - ./outputs:/app/outputs
-      - ./configs:/app/configs
-      - ./artifacts:/app/artifacts
+      - ./outputs:/app/outputs:ro
+      - ./configs:/app/configs:ro
+      - ./artifacts:/app/artifacts:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/live')"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 60s
