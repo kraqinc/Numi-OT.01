@@ -1,56 +1,50 @@
-# Numi real: LoRA sobre base open (octubre 2026)
+# Numi real: LoRA sobre base open
 
-## Ranking open-weight (referencia)
+## Default
 
-| Nivel | Modelos | Hardware |
-|-------|---------|----------|
-| Frontier (datacenter) | **MiMo-V2.6-Pro**, Kimi K3, GLM-5.3 | multi-GPU 80GB |
-| Fuerte + 1 GPU | **gpt-oss-20b**, DeepSeek-V4-Flash, Gemma-4 12B/31B | 16–24GB+ 4-bit |
-| Evitado por producto | Qwen* | — (regla Numination) |
+`google/gemma-2-9b-it` — funciona con 4-bit + LoRA en Colab GPU.
 
-Default del repo: **`openai/gpt-oss-20b`** (Apache 2.0, fuerte, fine-tuneable).
-Cambia `base.model_id` en `configs/training/lora_frontier.yaml` si tienes VRAM para MiMo/Kimi/DeepSeek.
+**No uses** `openai/gpt-oss-20b` con `load_in_4bit: true`: viene pre-quantizado (Mxfp4) y choca con BitsAndBytes.
 
-## Colab / GPU
+## Colab
 
 ```python
-from getpass import getpass
-token = getpass("HF+GitHub as needed: ")
-
-!git clone https://{token}@github.com/kraqinc/Numi-OT.01.git
 %cd Numi-OT.01
-!pip install -q -r requirements-dev.txt peft bitsandbytes
+!git pull
+!pip install -q -r requirements-lora.txt
 !pip install -q -e .
 
-# Runtime → GPU
-!python scripts/training/train_base_lora.py --config configs/training/lora_frontier.yaml
+# Acepta licencia Gemma en HF si pide login:
+# from huggingface_hub import login; login()
 
-# O override del base:
-# !python scripts/training/train_base_lora.py --model-id deepseek-ai/DeepSeek-V4-Flash-0731
+!python scripts/training/train_base_lora.py --config configs/training/lora_frontier.yaml
 ```
 
-Adapter out: `outputs/lora_frontier/final/`
+Si Gemma es gated:
 
-## Inferencia
+```python
+from huggingface_hub import login
+login()  # token con acceso a google/gemma-2-9b-it
+```
+
+## Inferencia (después del train)
 
 ```python
 from serving.base_engine import BaseLoRAEngine
 
 e = BaseLoRAEngine.from_adapter(
-    base_model_id="openai/gpt-oss-20b",
+    base_model_id="google/gemma-2-9b-it",
     adapter_path="outputs/lora_frontier/final",
     load_in_4bit=True,
 )
-print(e.generate([{"role":"user","content":"¿Qué modelo eres?"}]).text)
+print(e.generate([{"role": "user", "content": "¿Qué modelo eres?"}]).text)
 ```
 
-## Producto
+Si el adapter no existe → error claro `FileNotFoundError` (entrena primero).
 
-- System prompt **siempre** Numi OT (forzado en data + engine).
-- API FastAPI puede envolver `BaseLoRAEngine` igual que el toy engine.
-- Supabase sin cambios de arquitectura.
+## Otros bases
 
-## Honestidad
-
-Esto **sí** puede ser un chat de producto. El toy MoE Numi desde cero no.
-El adapter LoRA es Numi por identidad y datos; la capacidad viene del base.
+```bash
+# DeepSeek (si el id existe en el hub y te cabe en VRAM)
+python scripts/training/train_base_lora.py --model-id deepseek-ai/DeepSeek-V2-Lite-Chat
+```

@@ -36,27 +36,46 @@ class BaseLoRAEngine:
         from peft import PeftModel
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-        tokenizer = AutoTokenizer.from_pretrained(adapter_path)
+        adapter = Path(adapter_path)
+        if not adapter.exists():
+            raise FileNotFoundError(
+                f"Adapter not found: {adapter.resolve()}. "
+                "Train first: python scripts/training/train_base_lora.py"
+            )
+
+        # Prefer tokenizer saved with the adapter; fall back to base hub id
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                str(adapter), local_files_only=True
+            )
+        except Exception:
+            tokenizer = AutoTokenizer.from_pretrained(base_model_id)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-        quant = None
+        load_kwargs: dict[str, Any] = {
+            "device_map": "auto",
+            "dtype": torch.bfloat16,
+            "trust_remote_code": False,
+        }
         if load_in_4bit:
-            quant = BitsAndBytesConfig(
+            load_kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=torch.bfloat16,
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_quant_type="nf4",
             )
 
-        base = AutoModelForCausalLM.from_pretrained(
-            base_model_id,
-            quantization_config=quant,
-            device_map="auto",
-            torch_dtype=torch.bfloat16,
-            trust_remote_code=False,
-        )
-        model = PeftModel.from_pretrained(base, adapter_path)
+        try:
+            base = AutoModelForCausalLM.from_pretrained(base_model_id, **load_kwargs)
+        except ValueError as exc:
+            if "quantization" in str(exc).lower():
+                load_kwargs.pop("quantization_config", None)
+                base = AutoModelForCausalLM.from_pretrained(base_model_id, **load_kwargs)
+            else:
+                raise
+
+        model = PeftModel.from_pretrained(base, str(adapter))
         model.eval()
         dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         return cls(model=model, tokenizer=tokenizer, device=dev)
@@ -76,7 +95,10 @@ class BaseLoRAEngine:
                 messages, tokenize=False, add_generation_prompt=True
             )
         else:
-            prompt = "\n".join(f"{m['role']}: {m['content']}" for m in messages) + "\nassistant:"
+            prompt = (
+                "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+                + "\nassistant:"
+            )
 
         inputs = self.tokenizer(prompt, return_tensors="pt")
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}

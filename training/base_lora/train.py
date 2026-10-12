@@ -61,23 +61,36 @@ def train_lora(config: dict[str, Any]) -> Path:
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    quant = None
+    load_kwargs: dict[str, Any] = {
+        "device_map": "auto",
+        "trust_remote_code": base_cfg.get("trust_remote_code", False),
+        "attn_implementation": base_cfg.get("attn_implementation", "sdpa"),
+    }
+
+    # Prefer dtype= over deprecated torch_dtype=
+    dtype_name = base_cfg.get("torch_dtype", "bfloat16")
+    dtype = getattr(torch, dtype_name, torch.bfloat16)
+    load_kwargs["dtype"] = dtype
+
     if base_cfg.get("load_in_4bit", True):
-        quant = BitsAndBytesConfig(
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=dtype,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        quantization_config=quant,
-        device_map="auto",
-        torch_dtype=getattr(torch, base_cfg.get("torch_dtype", "bfloat16"), torch.bfloat16),
-        trust_remote_code=base_cfg.get("trust_remote_code", False),
-        attn_implementation=base_cfg.get("attn_implementation", "sdpa"),
-    )
+    try:
+        model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+    except ValueError as exc:
+        # Pre-quantized bases (e.g. gpt-oss Mxfp4) reject BitsAndBytesConfig
+        msg = str(exc).lower()
+        if "quantization" in msg or "mxfp4" in msg or "bitsandbytes" in msg:
+            print("WARN: base rejects BitsAndBytes; loading without load_in_4bit")
+            load_kwargs.pop("quantization_config", None)
+            model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+        else:
+            raise
 
     if train_cfg.get("gradient_checkpointing", True):
         model.gradient_checkpointing_enable()
@@ -97,13 +110,13 @@ def train_lora(config: dict[str, Any]) -> Path:
     dataset = ChatJsonlDataset(
         data_cfg["paths"],
         tokenizer=tokenizer,
-        max_length=int(data_cfg.get("max_seq_length", 2048)),
+        max_length=int(data_cfg.get("max_seq_length", 1024)),
     )
     loader = DataLoader(
         dataset,
         batch_size=int(train_cfg.get("per_device_train_batch_size", 1)),
         shuffle=True,
-        collate_fn=_collate(tokenizer, int(data_cfg.get("max_seq_length", 2048))),
+        collate_fn=_collate(tokenizer, int(data_cfg.get("max_seq_length", 1024))),
     )
 
     optimizer = torch.optim.AdamW(
@@ -140,13 +153,13 @@ def train_lora(config: dict[str, Any]) -> Path:
 
                 if global_step % save_every == 0:
                     ckpt = output_dir / f"checkpoint-{global_step}"
-                    model.save_pretrained(ckpt)
-                    tokenizer.save_pretrained(ckpt)
+                    model.save_pretrained(str(ckpt))
+                    tokenizer.save_pretrained(str(ckpt))
                     print(f"Saved {ckpt}")
 
     final = output_dir / "final"
-    model.save_pretrained(final)
-    tokenizer.save_pretrained(final)
+    model.save_pretrained(str(final))
+    tokenizer.save_pretrained(str(final))
     meta = {
         "base_model": model_id,
         "lora": lora_cfg,

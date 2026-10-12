@@ -1,20 +1,14 @@
 name: numi-lora-frontier
-version: "0.2.0"
+version: "0.2.1"
 
-# October 2026 open-weight landscape (no Qwen — product identity rule):
-#   Strongest overall (datacenter): MiMo-V2.6-Pro, Kimi K3, GLM-5.3
-#   Strong + fine-tunable on 1×24–48GB: DeepSeek-V4-Flash, gpt-oss-20b, Gemma-4-12B/31B
-# Default = best practical single-GPU path with permissive license.
+# Default: Gemma 2 9B Instruct — strong, Apache-friendly stack, works with 4-bit LoRA on Colab T4/L4.
+# No Qwen. Override model_id for DeepSeek / Gemma-4 / MiMo when hardware allows.
 
 base:
-  # Override with HF id you can load. Examples:
-  #   deepseek-ai/DeepSeek-V4-Flash-0731
-  #   openai/gpt-oss-20b
-  #   google/gemma-4-12b-it
-  #   xiaomi/mimo-v2.6-pro   # needs multi-GPU / quant + high VRAM
-  model_id: "openai/gpt-oss-20b"
+  model_id: "google/gemma-2-9b-it"
   trust_remote_code: false
   torch_dtype: bfloat16
+  # true = BitsAndBytes 4-bit (not for models already shipped pre-quantized like gpt-oss mxfp4)
   load_in_4bit: true
   attn_implementation: sdpa
 
@@ -40,7 +34,7 @@ data:
     - datasets/2026/numi_code_seed.jsonl
     - datasets/2026/numi_multiturn_seed.jsonl
     - datasets/2026/numi_product_seed.jsonl
-  max_seq_length: 2048
+  max_seq_length: 1024
   packing: false
 
 training:
