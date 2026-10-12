@@ -1,0 +1,67 @@
+name: numi-lora-frontier
+version: "0.2.0"
+
+# October 2026 open-weight landscape (no Qwen — product identity rule):
+#   Strongest overall (datacenter): MiMo-V2.6-Pro, Kimi K3, GLM-5.3
+#   Strong + fine-tunable on 1×24–48GB: DeepSeek-V4-Flash, gpt-oss-20b, Gemma-4-12B/31B
+# Default = best practical single-GPU path with permissive license.
+
+base:
+  # Override with HF id you can load. Examples:
+  #   deepseek-ai/DeepSeek-V4-Flash-0731
+  #   openai/gpt-oss-20b
+  #   google/gemma-4-12b-it
+  #   xiaomi/mimo-v2.6-pro   # needs multi-GPU / quant + high VRAM
+  model_id: "openai/gpt-oss-20b"
+  trust_remote_code: false
+  torch_dtype: bfloat16
+  load_in_4bit: true
+  attn_implementation: sdpa
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  bias: none
+  task_type: CAUSAL_LM
+
+data:
+  paths:
+    - datasets/2026/numi_identity_seed.jsonl
+    - datasets/2026/numi_conversation_seed.jsonl
+    - datasets/2026/numi_code_seed.jsonl
+    - datasets/2026/numi_multiturn_seed.jsonl
+    - datasets/2026/numi_product_seed.jsonl
+  max_seq_length: 2048
+  packing: false
+
+training:
+  output_dir: outputs/lora_frontier
+  num_epochs: 2
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 1.0e-4
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  logging_steps: 5
+  save_steps: 50
+  save_total_limit: 3
+  bf16: true
+  gradient_checkpointing: true
+  seed: 42
+  report_to: none
+
+inference:
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
