@@ -6,13 +6,13 @@ import os
 import threading
 import time
 import uuid
+from typing import Any, Protocol
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from serving.concurrency import inference_slot
-from serving.engine import NumiEngine
 from serving.history import trim_messages
 from serving.metrics import METRICS
 from serving.middleware.auth import APIKeyMiddleware, require_api_key_configured
@@ -30,27 +30,29 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("numi.api")
 
 MODEL_ID = os.getenv("NUMI_MODEL_ID", "numi-ot-0.1")
+# cloud = ChatGPT-style product (default for app). local = toy/open weights.
+BACKEND = os.getenv("NUMI_BACKEND", "cloud").lower()
 CHECKPOINT = os.getenv("NUMI_CHECKPOINT")
 CONFIG_PATH = os.getenv("NUMI_CONFIG", "configs/training/sft.yaml")
 DEVICE = os.getenv("NUMI_DEVICE", "auto")
-HISTORY_TOKEN_BUDGET = int(os.getenv("NUMI_HISTORY_TOKENS", "1500"))
+HISTORY_TOKEN_BUDGET = int(os.getenv("NUMI_HISTORY_TOKENS", "6000"))
 
-_engine: NumiEngine | None = None
+_engine: Any = None
 _engine_lock = threading.Lock()
 _engine_error: str | None = None
 
 app = FastAPI(
     title="Numi-OT.01 API",
-    version="0.1.0",
-    description="OpenAI-compatible chat API for Numi",
+    version="0.2.0",
+    description="OpenAI-compatible chat API for Numination (cloud-ready)",
 )
 
-_cors = os.getenv("NUMI_CORS_ORIGINS", "http://localhost:3000")
+_cors = os.getenv("NUMI_CORS_ORIGINS", "*")
 _origins = [o.strip() for o in _cors.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins if _origins != ["*"] else ["http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=_origins != ["*"],
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-Id"],
 )
@@ -59,7 +61,7 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(APIKeyMiddleware)
 
 
-def get_engine() -> NumiEngine:
+def get_engine() -> Any:
     global _engine, _engine_error
     if _engine is not None:
         return _engine
@@ -67,15 +69,24 @@ def get_engine() -> NumiEngine:
         if _engine is not None:
             return _engine
         try:
-            _engine = NumiEngine.from_checkpoint(
-                checkpoint=CHECKPOINT,
-                config_path=CONFIG_PATH,
-                device=DEVICE,
-            )
+            if BACKEND == "cloud":
+                from serving.cloud_engine import CloudEngine
+
+                _engine = CloudEngine.from_env()
+                logger.info("backend=cloud model=%s", _engine.model)
+            else:
+                from serving.engine import NumiEngine
+
+                _engine = NumiEngine.from_checkpoint(
+                    checkpoint=CHECKPOINT,
+                    config_path=CONFIG_PATH,
+                    device=DEVICE,
+                )
+                logger.info("backend=local device=%s", _engine.device)
             _engine_error = None
             return _engine
         except Exception as exc:
-            _engine_error = str(exc)[:200]
+            _engine_error = str(exc)[:300]
             raise
 
 
@@ -85,30 +96,30 @@ def on_startup() -> None:
     if os.getenv("NUMI_WARMUP", "1") == "1":
         try:
             get_engine()
-            logger.info("warmup ok")
+            logger.info("warmup ok backend=%s", BACKEND)
         except Exception as exc:
             logger.warning("warmup failed: %s", exc)
 
 
 @app.get("/live")
 def live() -> dict[str, str]:
-    """Liveness only — never loads the model (VULN-06)."""
     return {"status": "alive"}
 
 
 @app.get("/health")
 def health() -> dict[str, object]:
-    """Readiness: reports whether engine is already loaded; does not force load."""
     if _engine is not None:
         return {
             "status": "ok",
             "model": MODEL_ID,
+            "backend": BACKEND,
             "loaded": True,
-            "device": str(_engine.device),
+            "device": str(getattr(_engine, "device", BACKEND)),
         }
     return {
         "status": "starting" if _engine_error is None else "degraded",
         "model": MODEL_ID,
+        "backend": BACKEND,
         "loaded": False,
         "error": _engine_error,
     }
@@ -129,12 +140,11 @@ def list_models() -> dict[str, object]:
 
 def _run_generation(request: ChatCompletionRequest):
     requested = request.model or MODEL_ID
-    if requested not in {MODEL_ID, "numi", "numi-ot-0.1", "Numi-OT.01"}:
+    if requested not in {MODEL_ID, "numi", "numi-ot-0.1", "Numi-OT.01", "numi-ot"}:
         raise HTTPException(
             status_code=400,
             detail=f"Unknown model '{requested}'. Available: '{MODEL_ID}'.",
         )
-    # Roles already restricted to user|assistant by schema (VULN-03)
     messages = [{"role": m.role, "content": m.content} for m in request.messages]
     messages = trim_messages(messages, max_tokens=HISTORY_TOKEN_BUDGET)
     with inference_slot():
@@ -163,7 +173,7 @@ def chat_completions(request: ChatCompletionRequest):
         raise
     except Exception as exc:
         METRICS.record_chat(prompt_tokens=0, completion_tokens=0, error=True)
-        logger.exception("inference failed request_id-local")
+        logger.exception("inference failed")
         raise HTTPException(status_code=502, detail="Inference failed") from exc
 
     return ChatCompletionResponse(

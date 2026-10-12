@@ -7,21 +7,23 @@ services:
     envVars:
       - key: NUMI_ENV
         value: production
+      - key: NUMI_BACKEND
+        value: cloud
       - key: NUMI_MODEL_ID
         value: numi-ot-0.1
-      - key: NUMI_DEVICE
-        value: cpu
-      - key: NUMI_CONFIG
-        value: configs/serving/smoke.yaml
-      - key: NUMI_CHECKPOINT
-        value: outputs/sft_smoke/final.pt
       - key: NUMI_WARMUP
         value: "1"
       - key: NUMI_MAX_CONCURRENT
-        value: "2"
+        value: "8"
       - key: NUMI_RATE_LIMIT_RPM
-        value: "60"
+        value: "120"
       - key: NUMI_CORS_ORIGINS
-        sync: false
+        value: "*"
       - key: NUMI_API_KEY
+        sync: false
+      - key: NUMI_CLOUD_API_KEY
+        sync: false
+      - key: NUMI_CLOUD_BASE_URL
+        sync: false
+      - key: NUMI_CLOUD_MODEL
         sync: false
