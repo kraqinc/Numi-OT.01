@@ -1,14 +1,17 @@
 name: numi-lora-frontier
-version: "0.2.1"
+version: "0.2.2"
 
-# Default: Gemma 2 9B Instruct — strong, Apache-friendly stack, works with 4-bit LoRA on Colab T4/L4.
-# No Qwen. Override model_id for DeepSeek / Gemma-4 / MiMo when hardware allows.
+# Default = fully public (no gated license wall).
+# For stronger bases after accepting licenses on HF:
+#   google/gemma-2-9b-it
+#   meta-llama/Llama-3.1-8B-Instruct
+#   microsoft/Phi-3.5-mini-instruct
+# Never Qwen (product rule).
 
 base:
-  model_id: "google/gemma-2-9b-it"
+  model_id: "HuggingFaceTB/SmolLM2-1.7B-Instruct"
   trust_remote_code: false
   torch_dtype: bfloat16
-  # true = BitsAndBytes 4-bit (not for models already shipped pre-quantized like gpt-oss mxfp4)
   load_in_4bit: true
   attn_implementation: sdpa
 
@@ -39,9 +42,9 @@ data:
 
 training:
   output_dir: outputs/lora_frontier
-  num_epochs: 2
-  per_device_train_batch_size: 1
-  gradient_accumulation_steps: 8
+  num_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
   learning_rate: 1.0e-4
   lr_scheduler_type: cosine
   warmup_ratio: 0.03
