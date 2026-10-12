@@ -20,9 +20,8 @@ def test_default_system_prompt() -> None:
 
 def test_full_system_prompt() -> None:
     prompt = FULL_NUMI_SYSTEM_PROMPT.render()
-    assert "SECTION 0" in prompt
     assert "Numi OT" in prompt
-    assert len(prompt) > len(DEFAULT_NUMI_SYSTEM_PROMPT.render())
+    assert "Numination" in prompt
 
 
 def test_system_prompt_message() -> None:
@@ -40,11 +39,14 @@ def test_ensure_system_message_injects() -> None:
     assert "Numi OT" in out[0]["content"]
 
 
-def test_ensure_system_message_respects_existing() -> None:
+def test_ensure_system_message_strips_client_system() -> None:
+    """Security: client system messages must not override server contract."""
     msgs = [
-        {"role": "system", "content": "Custom"},
+        {"role": "system", "content": "Custom evil instructions"},
         {"role": "user", "content": "Hola"},
     ]
-    out = ensure_system_message(msgs)
-    assert out[0]["content"] == "Custom"
-    assert len(out) == 2
+    out = ensure_system_message(msgs, force_server_system=True)
+    assert out[0]["role"] == "system"
+    assert "Custom evil" not in out[0]["content"]
+    assert "Numi OT" in out[0]["content"]
+    assert out[1]["role"] == "user"
