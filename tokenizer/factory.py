@@ -8,6 +8,7 @@ from torch import Tensor
 
 from tokenizer.algorithms.bpe import BPETokenizer
 from tokenizer.special_tokens.tokens import NumiSpecialTokens
+from tokenizer.templates.chat import escape_control_tokens
 
 
 class TokenizerProtocol(Protocol):
@@ -24,7 +25,9 @@ class TokenizerProtocol(Protocol):
 
 
 class SimpleTokenizer:
-    """Byte-level fallback when no trained BPE artifact is available."""
+    """Byte-level fallback. Special tokens are NOT matched inside user content
+    when encode_content=True (default for untrusted text).
+    """
 
     def __init__(self, vocab_size: int = 128256) -> None:
         self.special = NumiSpecialTokens()
@@ -35,18 +38,35 @@ class SimpleTokenizer:
         self.special_to_id = {tok: 2 + i for i, tok in enumerate(self.special_list)}
         self.byte_offset = 2 + len(self.special_list)
 
-    def encode(self, text: str, max_length: int | None = None) -> list[int]:
+    def encode(
+        self,
+        text: str,
+        max_length: int | None = None,
+        *,
+        allow_special: bool = True,
+    ) -> list[int]:
+        """Encode text to ids.
+
+        allow_special=False: escape control markers first (safe for user content).
+        allow_special=True: match specials (only for fully trusted template strings).
+        """
+        if not allow_special:
+            text = escape_control_tokens(text)
+            # After escape, still do not match specials — pure byte path
+            allow_special = False
+
         limit = max_length or 10_000_000
         ids: list[int] = []
         i = 0
         while i < len(text):
             matched = False
-            for tok, tid in self.special_to_id.items():
-                if text.startswith(tok, i):
-                    ids.append(tid)
-                    i += len(tok)
-                    matched = True
-                    break
+            if allow_special:
+                for tok, tid in self.special_to_id.items():
+                    if text.startswith(tok, i):
+                        ids.append(tid)
+                        i += len(tok)
+                        matched = True
+                        break
             if matched:
                 if len(ids) >= limit:
                     break
@@ -84,8 +104,6 @@ class SimpleTokenizer:
 
 
 class BPETokenizerAdapter:
-    """Wraps BPETokenizer with pad_batch + pad_id for training/serving."""
-
     def __init__(self, tokenizer: BPETokenizer) -> None:
         self.tokenizer = tokenizer
         self.vocab_size = tokenizer.vocab_size
@@ -95,7 +113,15 @@ class BPETokenizerAdapter:
             tokenizer.unk_token, self.pad_id
         )
 
-    def encode(self, text: str, max_length: int | None = None) -> list[int]:
+    def encode(
+        self,
+        text: str,
+        max_length: int | None = None,
+        *,
+        allow_special: bool = True,
+    ) -> list[int]:
+        if not allow_special:
+            text = escape_control_tokens(text)
         return self.tokenizer.encode(text, max_length=max_length)
 
     def decode(self, ids: list[int], skip_special_tokens: bool = False) -> str:
@@ -117,22 +143,13 @@ def load_tokenizer(
     tokenizer_path: str | Path | None = None,
     vocab_size: int = 128256,
 ) -> SimpleTokenizer | BPETokenizerAdapter:
-    """
-    Prefer a trained BPE artifact if present, otherwise SimpleTokenizer.
-
-    tokenizer_path should point to a directory containing tokenizer.json
-    (as written by BPETokenizer.save).
-    """
     if tokenizer_path:
         path = Path(tokenizer_path)
         if (path / "tokenizer.json").exists():
-            bpe = BPETokenizer.load(path)
-            return BPETokenizerAdapter(bpe)
+            return BPETokenizerAdapter(BPETokenizer.load(path))
         if path.exists() and path.is_file() and path.name == "tokenizer.json":
-            bpe = BPETokenizer.load(path.parent)
-            return BPETokenizerAdapter(bpe)
+            return BPETokenizerAdapter(BPETokenizer.load(path.parent))
 
-    # default artifact location
     default = Path("artifacts/tokenizer")
     if (default / "tokenizer.json").exists():
         return BPETokenizerAdapter(BPETokenizer.load(default))

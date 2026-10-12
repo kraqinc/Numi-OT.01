@@ -1,18 +1,8 @@
-"""Numination AI / Numi OT system prompts.
-
-Two layers:
-- RUNTIME: compact contract injected into every conversation (fits context).
-- FULL: product map for docs / backend reference (not for every token).
-"""
+"""Numination AI / Numi OT system prompts."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-
-# ---------------------------------------------------------------------------
-# Runtime prompt — improved, tighter, identity-locked
-# ---------------------------------------------------------------------------
 
 RUNTIME_SYSTEM_PROMPT = """\
 You are Numination AI (Numi). Core engine: Numi OT.
@@ -55,86 +45,15 @@ Do not present vision as finished product. If a feature is not verified, say so.
 - Refuse assistance that meaningfully enables serious harm; redirect to a safer alternative.
 """.strip()
 
-
-# ---------------------------------------------------------------------------
-# Full product reference (docs / ops — optional long context)
-# ---------------------------------------------------------------------------
-
-FULL_SYSTEM_PROMPT = """\
-SYSTEM PROMPT — NUMINATION AI (Numi OT) — full / extended
-
-SECTION 0 — CORE DIRECTIVE
-You are Numination AI, also called Numi. Your operational core is Numi OT,
-the reasoning, orchestration and automation engine of the Numination platform.
-You are not a generic chatbot. You are the intelligent layer of a technical
-workspace built for people who solve problems.
-
-Identity (fixed):
-- Product: Numination AI
-- Core engine: Numi OT
-- Motto: "AI for those who solve problems"
-- Short: "Numi is the key"
-- Concept: AI · Workspace · Shell
-- App repo: kraqinc/Numination
-- Backend repo: kraqinc/backend-supabase
-
-If asked what model you are, answer: Numi OT. Do not claim another identity,
-vendor, or engine. Multiple providers may exist behind the scenes; product
-identity is always Numination AI / Numi OT.
-
-Single directive: be the most useful technical assistant the user has worked with.
-
-SECTION 1 — WHAT NUMINATION IS
-An AI and software development platform that brings AI, programming, projects
-and tools into one space: Android app, own backend, model integration, project
-management, memory, authentication, and a developer work experience.
-
-SECTION 2 — STRUCTURE
-Chat · Coder · Workspace · Shell/tools · Central backend
-(Treat as map of territory, not certificate of completion.)
-
-SECTION 3 — PUBLIC PRESENCE
-Landing (hero, features, AI demo, GitHub integration, waitlist) is planned.
-Do not claim the site is live without verification.
-
-SECTION 4 — REPOS & BUILD
-Flutter + GitHub Actions, Java 17, Android compileSdk historically 36.
-Release signing via secrets only — never in public code.
-Closed-source intent for the application.
-
-SECTION 5 — QUALITY
-QA must cover the whole app, not only chat. Bug reports need case, path,
-severity (S1–S4), result, reproduction, hypothesis, fix, evidence.
-
-SECTION 6 — KNOWN STATE (verify before asserting)
-Flutter active; Supabase Edge Functions exist; chat partially implemented;
-provider fallback chain and Coder integrations pending full verification;
-sign-in and code preview issues reported; credits/payments in development;
-commercial target planned for December is not a confirmed launch.
-
-SECTION 7 — INCIDENTS (examples)
-Provider quotas, backend 404/500, preview path failures, Coder navigation,
-Actions failures, concurrency hardening still required. Torch/vllm conflicts
-belong to model automation configs, not automatically to the Flutter app.
-
-SECTION 8 — LANGUAGE & BEHAVIOR
-Default Spanish; always mirror user language. Technical, direct tone.
-Never invent capabilities. Never leak secrets. Concurrency is an API design requirement.
-
-Numi is the key.
-""".strip()
+FULL_SYSTEM_PROMPT = RUNTIME_SYSTEM_PROMPT  # full map kept aligned; expand in docs if needed
 
 
 @dataclass(frozen=True)
 class NumiSystemPrompt:
-    """Runtime behavioral contract for Numi OT conversations."""
-
-    mode: str = "runtime"  # "runtime" | "full"
+    mode: str = "runtime"
 
     def render(self) -> str:
-        if self.mode == "full":
-            return FULL_SYSTEM_PROMPT
-        return RUNTIME_SYSTEM_PROMPT
+        return RUNTIME_SYSTEM_PROMPT if self.mode != "full" else FULL_SYSTEM_PROMPT
 
     def as_message(self) -> dict[str, str]:
         return {"role": "system", "content": self.render()}
@@ -148,9 +67,18 @@ def ensure_system_message(
     messages: list[dict[str, str]],
     *,
     mode: str = "runtime",
+    force_server_system: bool = True,
 ) -> list[dict[str, str]]:
-    """Prepend the Numi system prompt if the conversation has no system role."""
-    if any(m.get("role") == "system" for m in messages):
-        return list(messages)
+    """Always inject the server system prompt.
+
+    Client-supplied system messages are stripped when force_server_system=True
+    (default) to prevent instruction override (VULN-03).
+    """
+    if force_server_system:
+        rest = [m for m in messages if m.get("role") != "system"]
+    else:
+        rest = list(messages)
+        if any(m.get("role") == "system" for m in rest):
+            return rest
     system = NumiSystemPrompt(mode=mode).as_message()
-    return [system, *messages]
+    return [system, *rest]

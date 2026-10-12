@@ -3,8 +3,33 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
-
 _ALLOWED_ROLES = {"system", "user", "assistant", "tool"}
+
+# Structural markers that must never appear as raw user/assistant content
+_CONTROL_MARKERS = (
+    "<|numi_bos|>",
+    "<|numi_eos|>",
+    "<|numi_pad|>",
+    "<|numi_unk|>",
+    "<|numi_system|>",
+    "<|numi_user|>",
+    "<|numi_assistant|>",
+    "<|numi_tool|>",
+    "<|numi_tool_result|>",
+    "<|numi_start|>",
+    "<|numi_end|>",
+)
+
+
+def escape_control_tokens(text: str) -> str:
+    """Neutralize structural markers inside message content (VULN-04)."""
+    out = text
+    for marker in _CONTROL_MARKERS:
+        if marker in out:
+            # Insert zero-width space so tokenizer cannot match the exact token string
+            neutralized = marker[0] + "\u200b" + marker[1:]
+            out = out.replace(marker, neutralized)
+    return out
 
 
 @dataclass(frozen=True)
@@ -15,33 +40,13 @@ class NumiMessage:
     def __post_init__(self) -> None:
         if self.role not in _ALLOWED_ROLES:
             raise ValueError(
-                f"Invalid role '{self.role}'. "
-                f"Expected one of: {sorted(_ALLOWED_ROLES)}"
+                f"Invalid role '{self.role}'. Expected one of: {sorted(_ALLOWED_ROLES)}"
             )
         if not isinstance(self.content, str):
             raise TypeError("Message content must be a string.")
 
 
 class NumiChatTemplate:
-    """
-    Official chat template for Numi-OT.01.
-
-    Format (one message per block):
-
-        <|numi_bos|>
-        <|numi_system|>
-        {system content}
-        <|numi_eos|>
-        <|numi_user|>
-        {user content}
-        <|numi_eos|>
-        <|numi_assistant|>
-        {assistant content}
-        <|numi_eos|>
-        ...
-        <|numi_assistant|>          ← generation prompt (optional)
-    """
-
     def __init__(
         self,
         *,
@@ -54,7 +59,6 @@ class NumiChatTemplate:
     ) -> None:
         self.bos_token = bos_token
         self.eos_token = eos_token
-
         self.role_tokens = {
             "system": system_token,
             "user": user_token,
@@ -78,28 +82,24 @@ class NumiChatTemplate:
         messages: Iterable[Mapping[str, object] | NumiMessage],
     ) -> list[NumiMessage]:
         normalized: list[NumiMessage] = []
-
         for message in messages:
             if isinstance(message, NumiMessage):
                 normalized.append(message)
                 continue
-
             if not isinstance(message, Mapping):
                 raise TypeError("Each message must be a mapping or NumiMessage.")
-
             role = message.get("role")
             content = message.get("content")
-
             if not isinstance(role, str):
                 raise TypeError("Message role must be a string.")
             if not isinstance(content, str):
                 raise TypeError("Message content must be a string.")
-
+            # Escape control tokens for non-system roles
+            if role != "system":
+                content = escape_control_tokens(content)
             normalized.append(NumiMessage(role=role, content=content))
-
         if not normalized:
             raise ValueError("Conversation must contain at least one message.")
-
         return normalized
 
     def render(
@@ -109,19 +109,14 @@ class NumiChatTemplate:
         add_generation_prompt: bool = True,
     ) -> str:
         normalized = self.normalize_messages(messages)
-
         parts: list[str] = [self.bos_token]
-
         for message in normalized:
             role_token = self.role_tokens[message.role]
             content = message.content.strip()
-
             parts.append(role_token)
             if content:
                 parts.append(content)
             parts.append(self.eos_token)
-
         if add_generation_prompt:
             parts.append(self.role_tokens["assistant"])
-
         return "\n".join(parts) + "\n"
