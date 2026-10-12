@@ -3,9 +3,19 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Colab / script runs without pip install -e .
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import argparse
 
-from training.base_lora.train import train_from_yaml
+import yaml
+
+from training.base_lora.train import train_from_yaml, train_lora
 
 
 def main() -> None:
@@ -22,18 +32,32 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    import yaml
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = _ROOT / config_path
 
-    with open(args.config, encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
+
     if args.model_id:
         cfg.setdefault("base", {})["model_id"] = args.model_id
-        # write temp? train_lora accepts dict — call train_lora directly
-        from training.base_lora.train import train_lora
 
-        path = train_lora(cfg)
-    else:
-        path = train_from_yaml(args.config)
+    # Resolve relative data paths from repo root
+    paths = cfg.get("data", {}).get("paths", [])
+    resolved = []
+    for p in paths:
+        pp = Path(p)
+        if not pp.is_absolute():
+            pp = _ROOT / pp
+        resolved.append(str(pp))
+    cfg.setdefault("data", {})["paths"] = resolved
+
+    out = cfg.get("training", {}).get("output_dir", "outputs/lora_frontier")
+    out_p = Path(out)
+    if not out_p.is_absolute():
+        cfg.setdefault("training", {})["output_dir"] = str(_ROOT / out_p)
+
+    path = train_lora(cfg)
     print(f"Done: {path}")
 
 
