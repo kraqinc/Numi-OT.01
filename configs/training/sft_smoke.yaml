@@ -1,0 +1,42 @@
+name: numi-sft-smoke
+version: "0.1.0"
+# Tiny config: trains in minutes on CPU for integration testing.
+# NOT a production-quality model — use for wiring Flutter → Supabase → API.
+
+model:
+  vocab_size: 1024
+  hidden_size: 128
+  intermediate_size: 256
+  moe_intermediate_size: 64
+  num_hidden_layers: 2
+  num_attention_heads: 4
+  num_key_value_heads: 2
+  num_experts: 2
+  num_experts_per_tok: 1
+  max_position_embeddings: 256
+  tie_word_embeddings: true
+
+data:
+  path: datasets/2026/numi_conversation_seed.jsonl
+  extra_paths:
+    - datasets/2026/numi_identity_seed.jsonl
+  tokenizer_path: null
+  max_seq_length: 128
+
+lora:
+  enabled: false
+
+training:
+  output_dir: outputs/sft_smoke
+  num_epochs: 5
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  learning_rate: 5.0e-4
+  weight_decay: 0.0
+  warmup_ratio: 0.05
+  max_grad_norm: 1.0
+  logging_steps: 1
+  save_steps: 100
+  seed: 42
+  device: cpu
+  gradient_checkpointing: false
