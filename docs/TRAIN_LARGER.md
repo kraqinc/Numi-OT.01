@@ -1,45 +1,45 @@
-# Más SFT + base más grande
+# Base potente e independiente (Numi)
 
-## Datos
+**Prohibido en producto:** Microsoft Phi, Qwen, Anthropic, OpenAI como identidad.
 
-Además de los seeds, usa `datasets/2026/numi_sft_quality.jsonl` (respuestas cortas, sin bucles, producto Numi, código, deploy).
+## Default (recomendado)
 
-## Bases (sin Qwen)
+| Config | Base | Notas |
+|--------|------|--------|
+| `lora_frontier.yaml` | **`tencent/Hunyuan-7B-Instruct`** | 7B independiente, fuerte, open |
+| `lora_large.yaml` | `deepseek-ai/DeepSeek-R1-Distill-Llama-8B` | Más reasoning; linaje Llama |
 
-| Config | Base | VRAM aprox 4-bit |
-|--------|------|------------------|
-| `lora_frontier.yaml` | **Phi-3.5-mini-instruct** (~3.8B) | Colab T4 16GB OK |
-| `lora_large.yaml` | **Hunyuan-7B-Instruct** (~7B) | L4/A100 / RunPod |
+Identidad de producto siempre **Numi OT** vía system prompt + SFT.
 
-Si Phi-3.5 pide licencia en HF: abre el model card, Accept, con la misma cuenta del `huggingface-cli login`.
-
-## Colab
+## Colab / GPU
 
 ```python
 %cd /content/Numi-OT.01
 !git pull
-!pip install -q -r requirements-lora.txt
-!pip install -q -e .
+!pip install -q -r requirements-lora.txt && pip install -q -e .
 
-# 3.8B (recomendado primero)
 !python scripts/training/train_base_lora.py --config configs/training/lora_frontier.yaml
 
-# o 7B si tienes GPU grande:
-# !python scripts/training/train_base_lora.py --config configs/training/lora_large.yaml
-
 !python scripts/export_lora_safetensors.py --adapter outputs/lora_frontier/final
-```
 
-Prueba:
-
-```python
 from serving.base_engine import BaseLoRAEngine
 e = BaseLoRAEngine.from_adapter(
-    "microsoft/Phi-3.5-mini-instruct",
+    "tencent/Hunyuan-7B-Instruct",
     "outputs/lora_frontier/final",
     load_in_4bit=True,
 )
-print(e.generate([{"role":"user","content":"¿Me ayudas?"}], max_tokens=128).text)
+print(e.generate([{"role":"user","content":"¿Qué modelo eres?"}], max_tokens=64).text)
 ```
 
-Luego sube el adapter a HF y apunta Render `NUMI_PEFT_BASE` + `NUMI_PEFT_ADAPTER`.
+GPU: L4/A100 ideal. T4 puede ir justo en 4-bit.
+
+## Render
+
+```text
+NUMI_BACKEND=peft
+NUMI_PEFT_BASE=tencent/Hunyuan-7B-Instruct
+NUMI_PEFT_ADAPTER=<tu-adapter-hf-o-ruta>
+NUMI_API_KEY=<tu key Termux>
+```
+
+Plan con **mucha RAM** o instancia GPU. 7B en CPU puro es lento.

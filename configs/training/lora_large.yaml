@@ -1,13 +1,13 @@
 name: numi-lora-large
-version: "0.3.0"
+version: "0.4.0"
 
-# ~7B class — needs GPU with ~16GB+ VRAM in 4-bit (Colab L4/A100, RunPod).
-# Prefer this when Phi-3.5-mini is not enough.
-# No Qwen.
+# Even stronger open path: DeepSeek-R1 reasoning distill on Llama-8B
+# (NOT Qwen distill). May require Meta license accept on the Llama lineage.
+# Prefer Hunyuan (lora_frontier) if you want zero Microsoft/Meta/Qwen brand.
 
 base:
-  model_id: "tencent/Hunyuan-7B-Instruct"
-  trust_remote_code: true
+  model_id: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+  trust_remote_code: false
   torch_dtype: bfloat16
   load_in_4bit: true
   attn_implementation: sdpa
@@ -41,19 +41,14 @@ data:
 
 training:
   output_dir: outputs/lora_large
-  num_epochs: 4
+  num_epochs: 3
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 16
-  learning_rate: 1.0e-4
+  learning_rate: 8.0e-5
   weight_decay: 0.01
   max_grad_norm: 1.0
   logging_steps: 5
-  save_steps: 30
+  save_steps: 25
   bf16: true
   gradient_checkpointing: true
   seed: 42
-
-inference:
-  max_new_tokens: 256
-  temperature: 0.6
-  top_p: 0.9
