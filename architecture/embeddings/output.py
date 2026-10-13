@@ -1,3 +1,5 @@
-from .token import NumiLMHead
+from architecture.embeddings.token import LMHead
 
-__all__ = ["NumiLMHead"]
+NumiLMHead = LMHead
+
+__all__ = ["LMHead", "NumiLMHead"]

@@ -1,15 +1,18 @@
+"""Inference helpers for Numi.
+
+Production serving uses serving.base_engine.BaseLoRAEngine (PEFT) or
+serving.engine.NumiEngine (toy MoE). This module stays import-safe for CI
+and does not load Qwen.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import NamedTuple
-from typing import Any
+from typing import Any, NamedTuple
 
-import torch
-
-from model.loading.qwen_loader import QwenModelBundle, load_qwen
 from tokenizer.templates.chat import NumiMessage
-from tokenizer.templates.system import DEFAULT_NUMI_SYSTEM_PROMPT
+from tokenizer.templates.system import DEFAULT_NUMI_SYSTEM_PROMPT, ensure_system_message
 
 
 class GenerationResult(NamedTuple):
@@ -27,103 +30,60 @@ class GenerationConfig:
 
 
 class NumiInferenceEngine:
-    def __init__(
-        self,
-        bundle: QwenModelBundle,
-    ) -> None:
-        self.model = bundle.model
-        self.tokenizer = bundle.tokenizer
-        self.model_name = bundle.model_name
+    """Thin wrapper around the production PEFT engine when available.
+
+    Importing this class never pulls Qwen. Calling from_pretrained requires
+    transformers/peft and a real base+adapter.
+    """
+
+    def __init__(self, backend: Any) -> None:
+        self._backend = backend
 
     @classmethod
     def from_pretrained(
         cls,
         model_name: str,
         *,
-        revision: str = "main",
-        trust_remote_code: bool = False,
+        adapter_path: str | None = None,
+        load_in_4bit: bool = False,
+        **_kwargs: Any,
     ) -> NumiInferenceEngine:
-        bundle = load_qwen(
-            model_name,
-            revision=revision,
-            trust_remote_code=trust_remote_code,
-        )
+        from serving.base_engine import BaseLoRAEngine
 
-        return cls(bundle)
+        if not adapter_path:
+            raise ValueError(
+                "adapter_path is required (Numi PEFT LoRA). "
+                "Qwen bases are disabled for product identity."
+            )
+        backend = BaseLoRAEngine.from_adapter(
+            base_model_id=model_name,
+            adapter_path=adapter_path,
+            load_in_4bit=load_in_4bit,
+        )
+        return cls(backend)
 
     def _normalize_messages(
         self,
         messages: Iterable[Mapping[str, object] | NumiMessage],
     ) -> list[dict[str, str]]:
         normalized: list[dict[str, str]] = []
-
         for message in messages:
             if isinstance(message, NumiMessage):
                 normalized.append(
-                    {
-                        "role": message.role,
-                        "content": message.content,
-                    }
+                    {"role": message.role, "content": message.content}
                 )
                 continue
-
             role = message.get("role")
             content = message.get("content")
-
             if not isinstance(role, str):
                 raise TypeError("Message role must be a string.")
-
             if not isinstance(content, str):
                 raise TypeError("Message content must be a string.")
-
-            normalized.append(
-                {
-                    "role": role,
-                    "content": content,
-                }
-            )
-
+            normalized.append({"role": role, "content": content})
         if not normalized:
-            raise ValueError(
-                "Conversation must contain at least one message."
-            )
+            raise ValueError("Conversation must contain at least one message.")
+        return ensure_system_message(normalized, mode="runtime", force_server_system=True)
 
-        if not any(
-            message["role"] == "system"
-            for message in normalized
-        ):
-            normalized.insert(
-                0,
-                DEFAULT_NUMI_SYSTEM_PROMPT.as_message(),
-            )
-
-        return normalized
-
-    def _prepare_inputs(
-        self,
-        messages: list[dict[str, str]],
-    ) -> dict[str, Any]:
-        if not hasattr(self.tokenizer, "apply_chat_template"):
-            raise RuntimeError(
-                "The selected tokenizer does not provide a chat template."
-            )
-
-        inputs = self.tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
-        )
-
-        device = self.model.device
-
-        return {
-            key: value.to(device)
-            for key, value in inputs.items()
-        }
-
-    @torch.inference_mode()
     def generate(
         self,
         messages: Iterable[Mapping[str, object] | NumiMessage],
@@ -131,43 +91,15 @@ class NumiInferenceEngine:
         config: GenerationConfig | None = None,
     ) -> GenerationResult:
         generation = config or GenerationConfig()
-
         normalized = self._normalize_messages(messages)
-
-        inputs = self._prepare_inputs(normalized)
-
-        input_length = inputs["input_ids"].shape[-1]
-
-        do_sample = (
-            generation.do_sample
-            and generation.temperature > 0
+        result = self._backend.generate(
+            normalized,
+            max_tokens=generation.max_new_tokens,
+            temperature=generation.temperature,
+            top_p=generation.top_p,
         )
-
-        generation_kwargs: dict[str, Any] = {
-            "max_new_tokens": generation.max_new_tokens,
-            "top_p": generation.top_p,
-            "do_sample": do_sample,
-        }
-
-        if do_sample:
-            generation_kwargs["temperature"] = (
-                generation.temperature
-            )
-
-        outputs = self.model.generate(
-            **inputs,
-            **generation_kwargs,
-        )
-
-        generated_ids = outputs[0][input_length:]
-
-        response = self.tokenizer.decode(
-            generated_ids,
-            skip_special_tokens=True,
-        )
-
         return GenerationResult(
-            text=response.strip(),
-            prompt_tokens=input_length,
-            completion_tokens=int(generated_ids.shape[-1]),
+            text=result.text,
+            prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
         )
