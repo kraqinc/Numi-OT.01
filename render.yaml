@@ -27,6 +27,7 @@ services:
         value: "60"
       - key: NUMI_CORS_ORIGINS
         value: "*"
+      # Tu key de Termux — NO OpenAI
       - key: NUMI_API_KEY
         sync: false
       - key: HF_TOKEN

@@ -1,11 +1,9 @@
-# App ready — modelo propio en Render
+# App ready
 
 ```text
-Flutter → Supabase → Render PEFT (SmolLM2 + tu LoRA Numi)
+Flutter → Supabase → Render PEFT (tu LoRA)
+Auth entre Supabase y Render: NUMI_API_KEY (Termux)
+Sin OpenAI. Sin Grok API.
 ```
 
-Ver **`docs/DEPLOY_OWN_MODEL.md`**.
-
-Default de producción: `NUMI_BACKEND=peft` (independiente).
-
-Auth: `401` sin key. Rate limit: `429`. Readiness: `/ready`.
+Ver `docs/DEPLOY_OWN_MODEL.md`.
