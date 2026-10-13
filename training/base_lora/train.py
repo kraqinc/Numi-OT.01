@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,13 @@ import yaml
 from torch.utils.data import DataLoader
 
 from training.base_lora.data import ChatJsonlDataset
+
+
+def _set_seed(seed: int) -> None:
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def _collate(tokenizer: Any, max_length: int):
@@ -47,6 +55,9 @@ def train_lora(config: dict[str, Any]) -> Path:
     data_cfg = config["data"]
     train_cfg = config["training"]
 
+    seed = int(train_cfg.get("seed", 42))
+    _set_seed(seed)
+
     model_id = base_cfg["model_id"]
     output_dir = Path(train_cfg["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -67,7 +78,6 @@ def train_lora(config: dict[str, Any]) -> Path:
         "attn_implementation": base_cfg.get("attn_implementation", "sdpa"),
     }
 
-    # Prefer dtype= over deprecated torch_dtype=
     dtype_name = base_cfg.get("torch_dtype", "bfloat16")
     dtype = getattr(torch, dtype_name, torch.bfloat16)
     load_kwargs["dtype"] = dtype
@@ -83,7 +93,6 @@ def train_lora(config: dict[str, Any]) -> Path:
     try:
         model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
     except ValueError as exc:
-        # Pre-quantized bases (e.g. gpt-oss Mxfp4) reject BitsAndBytesConfig
         msg = str(exc).lower()
         if "quantization" in msg or "mxfp4" in msg or "bitsandbytes" in msg:
             print("WARN: base rejects BitsAndBytes; loading without load_in_4bit")
@@ -134,6 +143,7 @@ def train_lora(config: dict[str, Any]) -> Path:
     model.train()
     global_step = 0
     optimizer.zero_grad(set_to_none=True)
+    micro = 0
 
     for epoch in range(epochs):
         for batch_idx, batch in enumerate(loader):
@@ -141,8 +151,9 @@ def train_lora(config: dict[str, Any]) -> Path:
             out = model(**batch)
             loss = out.loss / accum
             loss.backward()
+            micro += 1
 
-            if (batch_idx + 1) % accum == 0:
+            if micro % accum == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
@@ -157,6 +168,15 @@ def train_lora(config: dict[str, Any]) -> Path:
                     tokenizer.save_pretrained(str(ckpt))
                     print(f"Saved {ckpt}")
 
+        # flush leftover grads at end of epoch
+        if micro % accum != 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+            global_step += 1
+            print(f"epoch={epoch} step={global_step} (flush) loss={loss.item() * accum:.4f}")
+            micro = 0
+
     final = output_dir / "final"
     model.save_pretrained(str(final))
     tokenizer.save_pretrained(str(final))
@@ -165,6 +185,7 @@ def train_lora(config: dict[str, Any]) -> Path:
         "lora": lora_cfg,
         "steps": global_step,
         "identity": "Numi OT / Numination AI",
+        "seed": seed,
     }
     (final / "numi_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"Training complete → {final}")
