@@ -5,10 +5,10 @@ from __future__ import annotations
 import os
 import secrets
 
-from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
-# Known placeholder values that must never be accepted as real secrets
 _FORBIDDEN_KEYS = {
     "",
     "change-me",
@@ -32,7 +32,6 @@ def expected_api_key() -> str | None:
 
 
 def require_api_key_configured() -> str:
-    """Fail closed in production if no strong key is set."""
     env = os.getenv("NUMI_ENV", os.getenv("ENV", "development")).lower()
     key = expected_api_key()
     if key is not None:
@@ -46,15 +45,9 @@ def require_api_key_configured() -> str:
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    """Require Authorization: Bearer <key> except on public paths.
+    PUBLIC_PATHS = {"/health", "/live", "/ready", "/docs", "/openapi.json", "/redoc"}
 
-    In production/staging a key is mandatory (checked at startup).
-    In development, if no key is set, auth is skipped with a warning path.
-    """
-
-    PUBLIC_PATHS = {"/health", "/live", "/docs", "/openapi.json", "/redoc"}
-
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next) -> Response:
         if request.url.path in self.PUBLIC_PATHS:
             return await call_next(request)
 
@@ -63,8 +56,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         if key is None:
             if env in {"production", "prod", "staging"}:
-                raise HTTPException(status_code=503, detail="API key not configured")
-            # development only: allow without key
+                return JSONResponse(
+                    {"detail": "API key not configured"}, status_code=503
+                )
             return await call_next(request)
 
         auth = request.headers.get("Authorization", "")
@@ -77,6 +71,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         header_key = request.headers.get("X-API-Key", "").strip()
         provided = token or header_key
         if not provided or not secrets.compare_digest(provided, key):
-            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+            return JSONResponse(
+                {"detail": "Invalid or missing API key"}, status_code=401
+            )
 
         return await call_next(request)

@@ -6,7 +6,7 @@ import os
 import threading
 import time
 import uuid
-from typing import Any, Protocol
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,12 +30,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("numi.api")
 
 MODEL_ID = os.getenv("NUMI_MODEL_ID", "numi-ot-0.1")
-# cloud = ChatGPT-style product (default for app). local = toy/open weights.
-BACKEND = os.getenv("NUMI_BACKEND", "cloud").lower()
+# peft = own SmolLM2+LoRA (independent). cloud = external OpenAI-compatible.
+# local = toy Numi MoE .pt
+BACKEND = os.getenv("NUMI_BACKEND", "peft").lower()
 CHECKPOINT = os.getenv("NUMI_CHECKPOINT")
 CONFIG_PATH = os.getenv("NUMI_CONFIG", "configs/training/sft.yaml")
 DEVICE = os.getenv("NUMI_DEVICE", "auto")
 HISTORY_TOKEN_BUDGET = int(os.getenv("NUMI_HISTORY_TOKENS", "6000"))
+PEFT_BASE = os.getenv("NUMI_PEFT_BASE", "HuggingFaceTB/SmolLM2-1.7B-Instruct")
+PEFT_ADAPTER = os.getenv("NUMI_PEFT_ADAPTER", "outputs/lora_frontier/final")
+PEFT_4BIT = os.getenv("NUMI_PEFT_4BIT", "0") == "1"
 
 _engine: Any = None
 _engine_lock = threading.Lock()
@@ -43,8 +47,8 @@ _engine_error: str | None = None
 
 app = FastAPI(
     title="Numi-OT.01 API",
-    version="0.2.0",
-    description="OpenAI-compatible chat API for Numination (cloud-ready)",
+    version="0.3.0",
+    description="OpenAI-compatible chat API for Numination (own model)",
 )
 
 _cors = os.getenv("NUMI_CORS_ORIGINS", "*")
@@ -69,11 +73,25 @@ def get_engine() -> Any:
         if _engine is not None:
             return _engine
         try:
-            if BACKEND == "cloud":
+            if BACKEND == "peft":
+                from serving.base_engine import BaseLoRAEngine
+
+                logger.info(
+                    "loading peft base=%s adapter=%s 4bit=%s",
+                    PEFT_BASE,
+                    PEFT_ADAPTER,
+                    PEFT_4BIT,
+                )
+                _engine = BaseLoRAEngine.from_adapter(
+                    base_model_id=PEFT_BASE,
+                    adapter_path=PEFT_ADAPTER,
+                    load_in_4bit=PEFT_4BIT,
+                )
+            elif BACKEND == "cloud":
                 from serving.cloud_engine import CloudEngine
 
                 _engine = CloudEngine.from_env()
-                logger.info("backend=cloud model=%s", _engine.model)
+                logger.info("backend=cloud model=%s", getattr(_engine, "model", "?"))
             else:
                 from serving.engine import NumiEngine
 
@@ -86,24 +104,39 @@ def get_engine() -> Any:
             _engine_error = None
             return _engine
         except Exception as exc:
-            _engine_error = str(exc)[:300]
+            _engine_error = type(exc).__name__
+            logger.exception("engine load failed")
             raise
 
 
 @app.on_event("startup")
 def on_startup() -> None:
     require_api_key_configured()
+    logger.info("startup backend=%s model_id=%s", BACKEND, MODEL_ID)
     if os.getenv("NUMI_WARMUP", "1") == "1":
         try:
             get_engine()
             logger.info("warmup ok backend=%s", BACKEND)
         except Exception as exc:
-            logger.warning("warmup failed: %s", exc)
+            logger.warning("warmup failed: %s", type(exc).__name__)
 
 
 @app.get("/live")
 def live() -> dict[str, str]:
     return {"status": "alive"}
+
+
+@app.get("/ready")
+def ready() -> dict[str, object]:
+    """Readiness: engine must be loaded."""
+    if _engine is not None:
+        return {"status": "ready", "model": MODEL_ID, "backend": BACKEND}
+    return {
+        "status": "not_ready",
+        "model": MODEL_ID,
+        "backend": BACKEND,
+        "error": _engine_error or "not_loaded",
+    }
 
 
 @app.get("/health")

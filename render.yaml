@@ -2,28 +2,32 @@ services:
   - type: web
     name: numi-api
     runtime: docker
-    plan: starter
+    plan: standard
     healthCheckPath: /live
     envVars:
       - key: NUMI_ENV
         value: production
       - key: NUMI_BACKEND
-        value: cloud
+        value: peft
       - key: NUMI_MODEL_ID
         value: numi-ot-0.1
+      - key: NUMI_DEVICE
+        value: cpu
+      - key: NUMI_PEFT_BASE
+        value: HuggingFaceTB/SmolLM2-1.7B-Instruct
+      - key: NUMI_PEFT_ADAPTER
+        value: /app/adapters/final
+      - key: NUMI_PEFT_4BIT
+        value: "0"
       - key: NUMI_WARMUP
         value: "1"
       - key: NUMI_MAX_CONCURRENT
-        value: "8"
+        value: "2"
       - key: NUMI_RATE_LIMIT_RPM
-        value: "120"
+        value: "60"
       - key: NUMI_CORS_ORIGINS
         value: "*"
       - key: NUMI_API_KEY
         sync: false
-      - key: NUMI_CLOUD_API_KEY
-        sync: false
-      - key: NUMI_CLOUD_BASE_URL
-        sync: false
-      - key: NUMI_CLOUD_MODEL
+      - key: HF_TOKEN
         sync: false
