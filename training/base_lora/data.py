@@ -1,4 +1,4 @@
-"""Load Numi JSONL conversations and apply chat template of the base tokenizer."""
+"""Load Numi JSONL conversations; train loss only on assistant turns."""
 
 from __future__ import annotations
 
@@ -32,9 +32,71 @@ def load_jsonl_messages(paths: list[str | Path]) -> list[list[dict[str, str]]]:
 
 
 def normalize_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Force Numi system prompt; drop client system roles."""
     rest = [m for m in messages if m.get("role") != "system"]
     return [{"role": "system", "content": RUNTIME_SYSTEM_PROMPT}, *rest]
+
+
+def _tokenize_text(tokenizer: Any, text: str, max_length: int) -> list[int]:
+    encoded = tokenizer(
+        text,
+        truncation=True,
+        max_length=max_length,
+        padding=False,
+        return_tensors=None,
+        add_special_tokens=False,
+    )
+    return list(encoded["input_ids"])
+
+
+def _build_masked_example(
+    tokenizer: Any,
+    messages: list[dict[str, str]],
+    max_length: int,
+) -> dict[str, Any]:
+    """Full conversation tokens; labels = -100 except assistant spans."""
+    # Prefer chat template for the full turn (training target includes assistant)
+    if hasattr(tokenizer, "apply_chat_template"):
+        full_text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+        # Prompt up to (not including) last assistant content: rebuild without last assistant
+        if messages and messages[-1].get("role") == "assistant":
+            prefix_msgs = messages[:-1]
+            prefix_text = tokenizer.apply_chat_template(
+                prefix_msgs,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+        else:
+            prefix_text = full_text
+    else:
+        parts = [f"{m['role'].upper()}: {m['content']}" for m in messages]
+        full_text = "\n".join(parts)
+        if messages and messages[-1].get("role") == "assistant":
+            prefix_parts = [
+                f"{m['role'].upper()}: {m['content']}" for m in messages[:-1]
+            ]
+            prefix_text = "\n".join(prefix_parts) + "\nASSISTANT:"
+        else:
+            prefix_text = full_text
+
+    full_ids = _tokenize_text(tokenizer, full_text, max_length)
+    prefix_ids = _tokenize_text(tokenizer, prefix_text, max_length)
+    prefix_len = min(len(prefix_ids), len(full_ids))
+
+    labels = [-100] * prefix_len + full_ids[prefix_len:]
+    # Align lengths
+    if len(labels) < len(full_ids):
+        labels.extend([-100] * (len(full_ids) - len(labels)))
+    labels = labels[: len(full_ids)]
+
+    return {
+        "input_ids": full_ids,
+        "attention_mask": [1] * len(full_ids),
+        "labels": labels,
+    }
 
 
 class ChatJsonlDataset(Dataset):
@@ -47,30 +109,6 @@ class ChatJsonlDataset(Dataset):
         return len(self.conversations)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
-        messages = self.conversations[idx]
-        if hasattr(self.tokenizer, "apply_chat_template"):
-            text = self.tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=False,
-            )
-        else:
-            # Fallback plain join
-            parts = []
-            for m in messages:
-                parts.append(f"{m['role'].upper()}: {m['content']}")
-            text = "\n".join(parts)
-
-        encoded = self.tokenizer(
-            text,
-            truncation=True,
-            max_length=self.max_length,
-            padding=False,
-            return_tensors=None,
+        return _build_masked_example(
+            self.tokenizer, self.conversations[idx], self.max_length
         )
-        input_ids = encoded["input_ids"]
-        return {
-            "input_ids": input_ids,
-            "attention_mask": encoded.get("attention_mask", [1] * len(input_ids)),
-            "labels": list(input_ids),
-        }

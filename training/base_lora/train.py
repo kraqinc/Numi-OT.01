@@ -1,4 +1,4 @@
-"""LoRA SFT on a frontier open-weight base — real capability + Numi identity."""
+"""LoRA SFT on open base — assistant-only loss + Numi identity."""
 
 from __future__ import annotations
 
@@ -24,16 +24,29 @@ def _set_seed(seed: int) -> None:
 def _collate(tokenizer: Any, max_length: int):
     def collate(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
         ids = [b["input_ids"] for b in batch]
+        labels_list = [b["labels"] for b in batch]
         padded = tokenizer.pad(
             {"input_ids": ids},
             padding=True,
             max_length=max_length,
             return_tensors="pt",
         )
-        labels = padded["input_ids"].clone()
+        # Pad labels with -100
+        max_len = padded["input_ids"].shape[1]
+        label_tensors = []
+        for lab in labels_list:
+            pad_n = max_len - len(lab)
+            if pad_n > 0:
+                lab = lab + [-100] * pad_n
+            else:
+                lab = lab[:max_len]
+            label_tensors.append(lab)
+        padded["labels"] = torch.tensor(label_tensors, dtype=torch.long)
         if tokenizer.pad_token_id is not None:
-            labels[labels == tokenizer.pad_token_id] = -100
-        padded["labels"] = labels
+            # Extra safety: never train on pad positions
+            padded["labels"] = padded["labels"].masked_fill(
+                padded["input_ids"] == tokenizer.pad_token_id, -100
+            )
         return padded
 
     return collate
@@ -41,7 +54,7 @@ def _collate(tokenizer: Any, max_length: int):
 
 def train_lora(config: dict[str, Any]) -> Path:
     try:
-        from peft import LoraConfig, get_peft_model, TaskType
+        from peft import LoraConfig, TaskType, get_peft_model
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     except ImportError as exc:
         raise SystemExit(
@@ -121,6 +134,7 @@ def train_lora(config: dict[str, Any]) -> Path:
         tokenizer=tokenizer,
         max_length=int(data_cfg.get("max_seq_length", 1024)),
     )
+    print(f"Examples: {len(dataset)}")
     loader = DataLoader(
         dataset,
         batch_size=int(train_cfg.get("per_device_train_batch_size", 1)),
@@ -160,7 +174,9 @@ def train_lora(config: dict[str, Any]) -> Path:
                 global_step += 1
 
                 if global_step % log_every == 0:
-                    print(f"epoch={epoch} step={global_step} loss={loss.item() * accum:.4f}")
+                    print(
+                        f"epoch={epoch} step={global_step} loss={loss.item() * accum:.4f}"
+                    )
 
                 if global_step % save_every == 0:
                     ckpt = output_dir / f"checkpoint-{global_step}"
@@ -168,13 +184,14 @@ def train_lora(config: dict[str, Any]) -> Path:
                     tokenizer.save_pretrained(str(ckpt))
                     print(f"Saved {ckpt}")
 
-        # flush leftover grads at end of epoch
         if micro % accum != 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             global_step += 1
-            print(f"epoch={epoch} step={global_step} (flush) loss={loss.item() * accum:.4f}")
+            print(
+                f"epoch={epoch} step={global_step} (flush) loss={loss.item() * accum:.4f}"
+            )
             micro = 0
 
     final = output_dir / "final"
@@ -184,8 +201,10 @@ def train_lora(config: dict[str, Any]) -> Path:
         "base_model": model_id,
         "lora": lora_cfg,
         "steps": global_step,
+        "examples": len(dataset),
         "identity": "Numi OT / Numination AI",
         "seed": seed,
+        "loss": "assistant_only",
     }
     (final / "numi_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"Training complete → {final}")
