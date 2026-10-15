@@ -1,8 +1,10 @@
 name: numi-lora-frontier
-version: "0.8.4"
+version: "0.8.5"
 
+# Default base works with transformers 4.46–4.51 + peft (Colab).
+# Hunyuan-7B needs newer transformers (hunyuan_v1_dense) — see lora_frontier_hunyuan.yaml
 base:
-  model_id: "tencent/Hunyuan-7B-Instruct"
+  model_id: "HuggingFaceTB/SmolLM2-1.7B-Instruct"
   trust_remote_code: true
   torch_dtype: bfloat16
   load_in_4bit: true
@@ -42,7 +44,7 @@ data:
     - datasets/2026/numi_spanish_expert.jsonl
     - datasets/2026/numi_geo_culture.jsonl
     - datasets/2026/numi_math_code_extra.jsonl
-  max_seq_length: 2048
+  max_seq_length: 1536
   packing: false
 
 training:

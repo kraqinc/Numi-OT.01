@@ -1,41 +1,52 @@
-# Colab train (fix HybridCache)
+# Colab train
 
-If you see:
+## Path
+
+Repo folder is often lowercase:
 
 ```text
-cannot import name 'HybridCache' from 'transformers'
+/content/numi-ot.01
 ```
 
-Your Colab has **transformers 5.x** and **peft** disagree. Fix:
+## Stack (avoid HybridCache error)
 
 ```python
-# 1) Force compatible stack
 !pip install -q --upgrade "transformers>=4.46.0,<4.52.0" "peft>=0.13.0,<0.16.0" "accelerate>=0.34.0" "bitsandbytes>=0.43.0"
+# Runtime → Restart session
+```
 
-# 2) Restart runtime (Runtime → Restart session), then:
-%cd /content
-!git clone https://github.com/kraqinc/Numi-OT.01.git || true
-%cd Numi-OT.01
+```python
+%cd /content/numi-ot.01
 !git pull origin main
-
 !pip install -q -r requirements-lora.txt
 !pip install -q -e .
 
-# 3) Train
+import transformers, peft
+print(transformers.__version__, peft.__version__)  # 4.51.x + 0.15.x OK
+```
+
+## Train (default — works on Colab)
+
+```python
 !python scripts/training/train_base_lora.py --config configs/training/lora_frontier.yaml
 ```
 
-Check versions:
+Base: **HuggingFaceTB/SmolLM2-1.7B-Instruct** (compatible with transformers 4.51).
+
+## Hunyuan 7B
+
+Needs transformers that register `hunyuan_v1_dense` (newer than 4.51). That often fights peft on Colab.
 
 ```python
-import transformers, peft
-print(transformers.__version__, peft.__version__)
-# expect transformers 4.46–4.51, peft 0.13–0.15
+# only if you know your stack supports Hunyuan:
+!python scripts/training/train_base_lora.py --config configs/training/lora_frontier_hunyuan.yaml
 ```
 
-Optional base if Hunyuan is heavy:
+## Warnings you can ignore
 
-```bash
-# edit config or:
-# NUMI still uses model_id inside yaml
-```
+- `gradio` / `diffusers` vs `huggingface-hub` — unrelated to LoRA train
+- `cudart_stub` / no GPU — train will be **very** slow on CPU; use a GPU runtime
+
+## GPU
+
+Runtime → Change runtime type → **T4 or better**.

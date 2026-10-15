@@ -1,0 +1,67 @@
+name: numi-lora-frontier-hunyuan
+version: "0.8.5"
+
+# Requires transformers that know model_type hunyuan_v1_dense
+# (often transformers from source / very new release). May conflict with peft.
+base:
+  model_id: "tencent/Hunyuan-7B-Instruct"
+  trust_remote_code: true
+  torch_dtype: bfloat16
+  load_in_4bit: true
+  attn_implementation: sdpa
+
+lora:
+  r: 64
+  alpha: 128
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  bias: none
+  task_type: CAUSAL_LM
+
+data:
+  paths:
+    - datasets/2026/numi_identity_seed.jsonl
+    - datasets/2026/numi_conversation_seed.jsonl
+    - datasets/2026/numi_code_seed.jsonl
+    - datasets/2026/numi_multiturn_seed.jsonl
+    - datasets/2026/numi_product_seed.jsonl
+    - datasets/2026/numi_sft_quality.jsonl
+    - datasets/2026/numi_sft_elite.jsonl
+    - datasets/2026/numi_assistant_quality.jsonl
+    - datasets/2026/numi_persona_warm.jsonl
+    - datasets/2026/numi_reasoning.jsonl
+    - datasets/2026/numi_math_expert.jsonl
+    - datasets/2026/numi_math_advanced.jsonl
+    - datasets/2026/numi_code_expert.jsonl
+    - datasets/2026/numi_languages.jsonl
+    - datasets/2026/numi_spanish_expert.jsonl
+    - datasets/2026/numi_geo_culture.jsonl
+    - datasets/2026/numi_math_code_extra.jsonl
+  max_seq_length: 2048
+  packing: false
+
+training:
+  output_dir: outputs/lora_frontier_hunyuan
+  num_epochs: 5
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 7.0e-5
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  logging_steps: 5
+  save_steps: 25
+  bf16: true
+  gradient_checkpointing: true
+  seed: 42
+
+inference:
+  max_new_tokens: 512
+  temperature: 0.55
+  top_p: 0.92
