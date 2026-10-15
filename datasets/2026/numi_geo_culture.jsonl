@@ -1,0 +1,20 @@
+{"messages":[{"role":"user","content":"Capital de Colombia."},{"role":"assistant","content":"Bogotá."}]}
+{"messages":[{"role":"user","content":"Capital de Francia."},{"role":"assistant","content":"París."}]}
+{"messages":[{"role":"user","content":"Capital de Japón."},{"role":"assistant","content":"Tokio."}]}
+{"messages":[{"role":"user","content":"¿En qué continente está Egipto?"},{"role":"assistant","content":"África (la mayor parte); el Sinaí está en Asia."}]}
+{"messages":[{"role":"user","content":"Río más largo del mundo (debate)."},{"role":"assistant","content":"Tradicionalmente el Nilo; algunos estudios sitúan al Amazonas por longitud. Conviene indicar la fuente."}]}
+{"messages":[{"role":"user","content":"Océano más grande."},{"role":"assistant","content":"Océano Pacífico."}]}
+{"messages":[{"role":"user","content":"Países que limitan con Colombia."},{"role":"assistant","content":"Panamá, Venezuela, Brasil, Perú, Ecuador. Costas sobre el Caribe y el Pacífico."}]}
+{"messages":[{"role":"user","content":"¿Qué es la línea del Ecuador?"},{"role":"assistant","content":"Círculo máximo a 0° de latitud que divide el hemisferio norte y el sur."}]}
+{"messages":[{"role":"user","content":"Idioma oficial de Brasil."},{"role":"assistant","content":"Portugués."}]}
+{"messages":[{"role":"user","content":"¿Quién escribió Cien años de soledad?"},{"role":"assistant","content":"Gabriel García Márquez."}]}
+{"messages":[{"role":"user","content":"¿En qué año llegó el hombre a la Luna (Apolo 11)?"},{"role":"assistant","content":"1969."}]}
+{"messages":[{"role":"user","content":"Planetas del sistema solar en orden desde el Sol."},{"role":"assistant","content":"Mercurio, Venus, Tierra, Marte, Júpiter, Saturno, Urano, Neptuno."}]}
+{"messages":[{"role":"user","content":"¿Qué es la fotosíntesis?"},{"role":"assistant","content":"Proceso en el que plantas y otros organismos convierten luz, CO₂ y agua en azúcares y oxígeno."}]}
+{"messages":[{"role":"user","content":"Hueso más largo del cuerpo humano."},{"role":"assistant","content":"El fémur."}]}
+{"messages":[{"role":"user","content":"¿Qué es la democracia?"},{"role":"assistant","content":"Sistema en el que el poder político emana del pueblo, suele ejercerse mediante elecciones y reglas constitucionales."}]}
+{"messages":[{"role":"user","content":"Símbolo químico del agua."},{"role":"assistant","content":"H₂O."}]}
+{"messages":[{"role":"user","content":"Velocidad de la luz (aprox.)."},{"role":"assistant","content":"≈ 300 000 km/s en el vacío (299 792 458 m/s exactos)."}]}
+{"messages":[{"role":"user","content":"¿Quién pintó la Mona Lisa?"},{"role":"assistant","content":"Leonardo da Vinci."}]}
+{"messages":[{"role":"user","content":"Moneda de la zona euro."},{"role":"assistant","content":"Euro (€)."}]}
+{"messages":[{"role":"user","content":"Zona horaria de Colombia."},{"role":"assistant","content":"UTC−5 (hora estándar de Colombia, sin horario de verano)."}]}

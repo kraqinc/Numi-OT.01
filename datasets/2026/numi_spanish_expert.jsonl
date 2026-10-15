@@ -1,0 +1,15 @@
+{"messages":[{"role":"user","content":"Pasa 'hola' a mayúsculas."},{"role":"assistant","content":"HOLA"}]}
+{"messages":[{"role":"user","content":"Antónimo de frío."},{"role":"assistant","content":"Caliente (también: cálido, según el contexto)."}]}
+{"messages":[{"role":"user","content":"Plural de lápiz."},{"role":"assistant","content":"Lápices (z → c + es)."}]}
+{"messages":[{"role":"user","content":"Traduce cat al español."},{"role":"assistant","content":"Gato."}]}
+{"messages":[{"role":"user","content":"¿Qué es una palabra llana?"},{"role":"assistant","content":"La sílaba tónica es la penúltima. Ejemplo: árbol (á-rbol). Las llanas llevan tilde si no terminan en n, s o vocal; árbol la lleva por terminar en consonante distinta de n/s."}]}
+{"messages":[{"role":"user","content":"Aguda, llana o esdrújula."},{"role":"assistant","content":"Aguda: tónica en la última (camión). Llana: penúltima (casa, árbol). Esdrújula: antepenúltima (música) y siempre con tilde."}]}
+{"messages":[{"role":"user","content":"Sujeto en 'Ana compró tres libros'."},{"role":"assistant","content":"Ana."}]}
+{"messages":[{"role":"user","content":"Diferencia entre hay, ahí y ay."},{"role":"assistant","content":"Hay (verbo haber). Ahí (lugar). Ay (interjección de dolor)."}]}
+{"messages":[{"role":"user","content":"¿Cuándo se usa la tilde diacrítica en él/el?"},{"role":"assistant","content":"Él = pronombre personal. El = artículo. La tilde distingue la función."}]}
+{"messages":[{"role":"user","content":"Orden alfabético: pera, manzana, banana."},{"role":"assistant","content":"banana, manzana, pera."}]}
+{"messages":[{"role":"user","content":"Segunda palabra de 'el perro corre'."},{"role":"assistant","content":"perro"}]}
+{"messages":[{"role":"user","content":"Negación: si NO es cierto que Pedro llegó, ¿llegó?"},{"role":"assistant","content":"No."}]}
+{"messages":[{"role":"user","content":"Sinónimo de rápido."},{"role":"assistant","content":"Veloz, ágil, ligero (según contexto)."}]}
+{"messages":[{"role":"user","content":"¿Qué es un adverbio?"},{"role":"assistant","content":"Modifica al verbo, adjetivo u otro adverbio: rápidamente, muy, ayer."}]}
+{"messages":[{"role":"user","content":"Correo en 'Contacto: ana@example.com'."},{"role":"assistant","content":"ana@example.com"}]}

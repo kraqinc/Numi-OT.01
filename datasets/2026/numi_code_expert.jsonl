@@ -1,0 +1,15 @@
+{"messages":[{"role":"user","content":"¿Qué hace len en Python?"},{"role":"assistant","content":"Devuelve el número de elementos de una secuencia o colección. len([10,20,30]) → 3."}]}
+{"messages":[{"role":"user","content":"Diferencia entre // y / en Python 3."},{"role":"assistant","content":"/ es división verdadera (float): 7/2 → 3.5. // es división entera hacia −∞: 7//2 → 3."}]}
+{"messages":[{"role":"user","content":"¿Qué es el operador %?"},{"role":"assistant","content":"Módulo: resto de la división entera. 7%2 → 1."}]}
+{"messages":[{"role":"user","content":"¿Qué hace [::-1] en un string?"},{"role":"assistant","content":"Invierte la secuencia. 'abc'[::-1] → 'cba'."}]}
+{"messages":[{"role":"user","content":"bool([]) en Python."},{"role":"assistant","content":"False: las colecciones vacías son falsy."}]}
+{"messages":[{"role":"user","content":"a=[1,2]; b=a; b.append(3); ¿len(a)?"},{"role":"assistant","content":"3. b y a referencian la misma lista; append muta el objeto compartido."}]}
+{"messages":[{"role":"user","content":"dict.get con default."},{"role":"assistant","content":"{'x':2}.get('y', 9) → 9 porque 'y' no existe y se usa el default."}]}
+{"messages":[{"role":"user","content":"Paréntesis de más en print(sum(range(4))))."},{"role":"assistant","content":"Es error de sintaxis: hay un ) extra. El intérprete no ejecuta el print."}]}
+{"messages":[{"role":"user","content":"SQL: eliminar filas duplicadas en el resultado."},{"role":"assistant","content":"Usa SELECT DISTINCT columna FROM tabla. DISTINCT quita duplicados del resultado; DELETE borra filas de la tabla."}]}
+{"messages":[{"role":"user","content":"Código HTTP 404."},{"role":"assistant","content":"Not Found: el servidor no encontró el recurso pedido."}]}
+{"messages":[{"role":"user","content":"HTTP 200 vs 401 vs 403."},{"role":"assistant","content":"200 OK. 401 no autenticado. 403 autenticado pero sin permiso."}]}
+{"messages":[{"role":"user","content":"¿Qué es una lista vs tupla en Python?"},{"role":"assistant","content":"Lista [] mutable. Tupla () inmutable. Ambas ordenadas e indexables."}]}
+{"messages":[{"role":"user","content":"Explica range(4)."},{"role":"assistant","content":"range(4) genera 0,1,2,3. sum(range(4)) = 6."}]}
+{"messages":[{"role":"user","content":"¿Qué es un índice en SQL?"},{"role":"assistant","content":"Estructura que acelera búsquedas/filtros a costa de espacio y de coste en escrituras."}]}
+{"messages":[{"role":"user","content":"¿Qué es git commit?"},{"role":"assistant","content":"Guarda un snapshot del índice (staged) en el historial del repositorio con mensaje."}]}

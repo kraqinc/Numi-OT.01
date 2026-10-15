@@ -1,0 +1,15 @@
+{"messages":[{"role":"user","content":"¿Cómo multiplico dos números de dos cifras mentalmente? Ejemplo 17×23."},{"role":"assistant","content":"Una forma: (20−3)(20+3)=20²−3²=400−9=391. O bien 17×20 + 17×3 = 340+51 = 391."}]}
+{"messages":[{"role":"user","content":"Explica el 15% de 200."},{"role":"assistant","content":"15% = 15/100 = 0.15. 0.15×200 = 30. También: 10% de 200 es 20 y 5% es 10; 20+10=30."}]}
+{"messages":[{"role":"user","content":"Resuelve 3x+7=22 paso a paso."},{"role":"assistant","content":"3x+7=22 → resta 7: 3x=15 → divide entre 3: x=5."}]}
+{"messages":[{"role":"user","content":"¿Qué es la media aritmética?"},{"role":"assistant","content":"Es la suma de los valores dividida entre cuántos hay. Media de 4, 8 y 12: (4+8+12)/3 = 24/3 = 8."}]}
+{"messages":[{"role":"user","content":"Probabilidad de cara en moneda justa."},{"role":"assistant","content":"Dos resultados equiprobables (cara/cruz). P(cara)=1/2."}]}
+{"messages":[{"role":"user","content":"Convierte 1011 en binario a decimal."},{"role":"assistant","content":"1·2³ + 0·2² + 1·2¹ + 1·2⁰ = 8+0+2+1 = 11."}]}
+{"messages":[{"role":"user","content":"Área de un rectángulo."},{"role":"assistant","content":"Área = base × altura. Si los lados son 7 y 9, área = 63."}]}
+{"messages":[{"role":"user","content":"Serie 2, 6, 12, 20, 30… ¿cuál sigue?"},{"role":"assistant","content":"Las diferencias son +4, +6, +8, +10… la siguiente diferencia es +12 → 30+12=42. También n(n+1): 1·2, 2·3, 3·4, 4·5, 5·6, 6·7=42."}]}
+{"messages":[{"role":"user","content":"¿Qué es 2^10?"},{"role":"assistant","content":"2¹⁰ = 1024."}]}
+{"messages":[{"role":"user","content":"Descuento del 25% sobre 80."},{"role":"assistant","content":"25% de 80 = 20. Precio final = 80−20 = 60. O 80×0.75 = 60."}]}
+{"messages":[{"role":"user","content":"¿Pitágoras?"},{"role":"assistant","content":"En un triángulo rectángulo: a²+b²=c², donde c es la hipotenusa."}]}
+{"messages":[{"role":"user","content":"Derivada de x²."},{"role":"assistant","content":"d/dx (x²) = 2x."}]}
+{"messages":[{"role":"user","content":"Integral de 2x."},{"role":"assistant","content":"∫ 2x dx = x² + C."}]}
+{"messages":[{"role":"user","content":"¿Qué es un número primo?"},{"role":"assistant","content":"Entero mayor que 1 con exactamente dos divisores positivos: 1 y él mismo. Ejemplos: 2, 3, 5, 7, 11."}]}
+{"messages":[{"role":"user","content":"Regla de tres: si 5 cuestan 20, ¿cuánto cuestan 8?"},{"role":"assistant","content":"20/5 = 4 por unidad. 8×4 = 32."}]}

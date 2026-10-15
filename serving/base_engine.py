@@ -10,7 +10,6 @@ from typing import Any
 
 import torch
 
-from serving.exam_answers import lookup_exam_answer
 from tokenizer.templates.system import ensure_system_message
 
 
@@ -124,27 +123,13 @@ class BaseLoRAEngine:
         self,
         messages: list[dict[str, str]],
         *,
-        max_tokens: int = 64,
-        temperature: float = 0.0,
-        top_p: float = 1.0,
-        repetition_penalty: float = 1.05,
-        no_repeat_ngram_size: int = 0,
+        max_tokens: int = 256,
+        temperature: float = 0.55,
+        top_p: float = 0.9,
+        repetition_penalty: float = 1.15,
+        no_repeat_ngram_size: int = 4,
     ) -> GenerationResult:
         messages = ensure_system_message(messages, force_server_system=True)
-
-        # Exam-30 gold path: 100% on the fixed bench questions
-        exam_on = os.getenv("NUMI_EXAM_MODE", "1") != "0"
-        if exam_on:
-            for m in reversed(messages):
-                if m.get("role") == "user":
-                    gold = lookup_exam_answer(str(m.get("content", "")))
-                    if gold is not None:
-                        return GenerationResult(
-                            text=gold,
-                            prompt_tokens=0,
-                            completion_tokens=len(gold.split()),
-                        )
-                    break
 
         if hasattr(self.tokenizer, "apply_chat_template"):
             try:
@@ -176,7 +161,7 @@ class BaseLoRAEngine:
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         prompt_len = int(inputs["input_ids"].shape[1])
 
-        max_tokens = max(8, min(int(max_tokens), 256))
+        max_tokens = max(16, min(int(max_tokens), 512))
         do_sample = temperature is not None and float(temperature) > 0.05
         gen_kwargs: dict[str, Any] = {
             "max_new_tokens": max_tokens,
@@ -184,11 +169,10 @@ class BaseLoRAEngine:
             "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
             "eos_token_id": self.tokenizer.eos_token_id,
             "repetition_penalty": repetition_penalty,
+            "no_repeat_ngram_size": no_repeat_ngram_size,
         }
-        if no_repeat_ngram_size and no_repeat_ngram_size > 0:
-            gen_kwargs["no_repeat_ngram_size"] = no_repeat_ngram_size
         if do_sample:
-            gen_kwargs["temperature"] = float(max(0.2, min(temperature, 1.0)))
+            gen_kwargs["temperature"] = float(max(0.25, min(temperature, 1.0)))
             gen_kwargs["top_p"] = float(max(0.7, min(top_p, 0.95)))
             gen_kwargs["top_k"] = 40
 
