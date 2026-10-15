@@ -31,7 +31,6 @@ def _collate(tokenizer: Any, max_length: int):
             max_length=max_length,
             return_tensors="pt",
         )
-        # Pad labels with -100
         max_len = padded["input_ids"].shape[1]
         label_tensors = []
         for lab in labels_list:
@@ -43,7 +42,6 @@ def _collate(tokenizer: Any, max_length: int):
             label_tensors.append(lab)
         padded["labels"] = torch.tensor(label_tensors, dtype=torch.long)
         if tokenizer.pad_token_id is not None:
-            # Extra safety: never train on pad positions
             padded["labels"] = padded["labels"].masked_fill(
                 padded["input_ids"] == tokenizer.pad_token_id, -100
             )
@@ -58,8 +56,11 @@ def train_lora(config: dict[str, Any]) -> Path:
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     except ImportError as exc:
         raise SystemExit(
-            "Install peft + transformers + bitsandbytes:\n"
-            "  pip install peft bitsandbytes accelerate transformers\n"
+            "Import error (often HybridCache / transformers 5.x vs peft).\n"
+            "Fix in Colab:\n"
+            '  pip install -U "transformers>=4.46,<4.52" "peft>=0.13,<0.16" '
+            '"accelerate" "bitsandbytes"\n'
+            "  then Runtime → Restart session\n"
             f"Original error: {exc}"
         ) from exc
 
@@ -88,14 +89,17 @@ def train_lora(config: dict[str, Any]) -> Path:
     load_kwargs: dict[str, Any] = {
         "device_map": "auto",
         "trust_remote_code": base_cfg.get("trust_remote_code", False),
-        "attn_implementation": base_cfg.get("attn_implementation", "sdpa"),
     }
+    attn = base_cfg.get("attn_implementation")
+    if attn:
+        load_kwargs["attn_implementation"] = attn
 
     dtype_name = base_cfg.get("torch_dtype", "bfloat16")
     dtype = getattr(torch, dtype_name, torch.bfloat16)
-    load_kwargs["dtype"] = dtype
+    # transformers 4.x uses torch_dtype; 5.x prefers dtype — try both paths
+    load_kwargs["torch_dtype"] = dtype
 
-    if base_cfg.get("load_in_4bit", True):
+    if base_cfg.get("load_in_4bit", True) and torch.cuda.is_available():
         load_kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_compute_dtype=dtype,
@@ -104,6 +108,10 @@ def train_lora(config: dict[str, Any]) -> Path:
         )
 
     try:
+        model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+    except TypeError:
+        load_kwargs.pop("torch_dtype", None)
+        load_kwargs["dtype"] = dtype
         model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
     except ValueError as exc:
         msg = str(exc).lower()
