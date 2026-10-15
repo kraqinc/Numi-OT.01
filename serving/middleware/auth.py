@@ -18,6 +18,7 @@ _FORBIDDEN_KEYS = {
     "password",
     "numi",
     "test",
+    "1234567890123456",
 }
 
 
@@ -26,7 +27,7 @@ def expected_api_key() -> str | None:
     if not key:
         return None
     key = key.strip()
-    if key.lower() in _FORBIDDEN_KEYS or len(key) < 16:
+    if key.lower() in _FORBIDDEN_KEYS or len(key) < 24:
         return None
     return key
 
@@ -38,7 +39,7 @@ def require_api_key_configured() -> str:
         return key
     if env in {"production", "prod", "staging"}:
         raise RuntimeError(
-            "NUMI_API_KEY must be set to a strong secret (>=16 chars) "
+            "NUMI_API_KEY must be set to a strong secret (>=24 chars) "
             "when NUMI_ENV is production/staging. Refusing to start."
         )
     return ""

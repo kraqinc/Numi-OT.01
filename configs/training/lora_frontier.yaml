@@ -1,5 +1,5 @@
 name: numi-lora-frontier
-version: "0.7.1"
+version: "0.8.0"
 
 base:
   model_id: "tencent/Hunyuan-7B-Instruct"
@@ -33,12 +33,13 @@ data:
     - datasets/2026/numi_sft_quality.jsonl
     - datasets/2026/numi_sft_elite.jsonl
     - datasets/2026/numi_assistant_quality.jsonl
+    - datasets/2026/numi_reasoning.jsonl
     - datasets/2026/numi_math_expert.jsonl
     - datasets/2026/numi_code_expert.jsonl
     - datasets/2026/numi_spanish_expert.jsonl
     - datasets/2026/numi_geo_culture.jsonl
     - datasets/2026/numi_math_code_extra.jsonl
-  max_seq_length: 1536
+  max_seq_length: 2048
   packing: false
 
 training:
@@ -56,6 +57,6 @@ training:
   seed: 42
 
 inference:
-  max_new_tokens: 256
-  temperature: 0.55
+  max_new_tokens: 512
+  temperature: 0.4
   top_p: 0.9
