@@ -1,5 +1,5 @@
 name: numi-lora-frontier
-version: "0.8.3"
+version: "0.8.4"
 
 base:
   model_id: "tencent/Hunyuan-7B-Instruct"
@@ -33,6 +33,7 @@ data:
     - datasets/2026/numi_sft_quality.jsonl
     - datasets/2026/numi_sft_elite.jsonl
     - datasets/2026/numi_assistant_quality.jsonl
+    - datasets/2026/numi_persona_warm.jsonl
     - datasets/2026/numi_reasoning.jsonl
     - datasets/2026/numi_math_expert.jsonl
     - datasets/2026/numi_math_advanced.jsonl
@@ -60,5 +61,5 @@ training:
 
 inference:
   max_new_tokens: 512
-  temperature: 0.35
-  top_p: 0.9
+  temperature: 0.55
+  top_p: 0.92

@@ -48,7 +48,6 @@ def _apply_rag(messages: list[dict[str, str]]) -> list[dict[str, str]]:
         return messages
 
     out: list[dict[str, str]] = []
-    # Enrich only the last user turn
     last_user = max(
         (i for i, m in enumerate(messages) if m.get("role") == "user"),
         default=-1,
@@ -146,10 +145,10 @@ class BaseLoRAEngine:
         self,
         messages: list[dict[str, str]],
         *,
-        max_tokens: int = 256,
+        max_tokens: int = 512,
         temperature: float = 0.55,
-        top_p: float = 0.9,
-        repetition_penalty: float = 1.15,
+        top_p: float = 0.92,
+        repetition_penalty: float = 1.12,
         no_repeat_ngram_size: int = 4,
     ) -> GenerationResult:
         messages = ensure_system_message(messages, force_server_system=True)
@@ -185,7 +184,8 @@ class BaseLoRAEngine:
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         prompt_len = int(inputs["input_ids"].shape[1])
 
-        max_tokens = max(16, min(int(max_tokens), 512))
+        # Room for 2+ paragraphs on casual turns
+        max_tokens = max(64, min(int(max_tokens), 1024))
         do_sample = temperature is not None and float(temperature) > 0.05
         gen_kwargs: dict[str, Any] = {
             "max_new_tokens": max_tokens,
@@ -196,9 +196,9 @@ class BaseLoRAEngine:
             "no_repeat_ngram_size": no_repeat_ngram_size,
         }
         if do_sample:
-            gen_kwargs["temperature"] = float(max(0.25, min(temperature, 1.0)))
+            gen_kwargs["temperature"] = float(max(0.3, min(temperature, 1.0)))
             gen_kwargs["top_p"] = float(max(0.7, min(top_p, 0.95)))
-            gen_kwargs["top_k"] = 40
+            gen_kwargs["top_k"] = 50
 
         out = self.model.generate(**inputs, **gen_kwargs)
         new_tokens = out[0, prompt_len:]
