@@ -59,7 +59,7 @@ def train_lora(config: dict[str, Any]) -> Path:
             "Import error (often HybridCache / transformers 5.x vs peft).\n"
             "Fix in Colab:\n"
             '  pip install -U "transformers>=4.46,<4.52" "peft>=0.13,<0.16" '
-            '"accelerate" "bitsandbytes"\n'
+            '"accelerate" "bitsandbytes>=0.46.1"\n'
             "  then Runtime → Restart session\n"
             f"Original error: {exc}"
         ) from exc
@@ -78,6 +78,7 @@ def train_lora(config: dict[str, Any]) -> Path:
 
     print(f"Base model: {model_id}")
     print(f"Output: {output_dir}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_id,
@@ -96,23 +97,43 @@ def train_lora(config: dict[str, Any]) -> Path:
 
     dtype_name = base_cfg.get("torch_dtype", "bfloat16")
     dtype = getattr(torch, dtype_name, torch.bfloat16)
-    # transformers 4.x uses torch_dtype; 5.x prefers dtype — try both paths
-    load_kwargs["torch_dtype"] = dtype
+    # Prefer dtype (new); keep torch_dtype fallback via try/except below
+    load_kwargs["dtype"] = dtype
 
-    if base_cfg.get("load_in_4bit", True) and torch.cuda.is_available():
+    use_4bit = bool(base_cfg.get("load_in_4bit", True)) and torch.cuda.is_available()
+    if use_4bit:
+        try:
+            import bitsandbytes  # noqa: F401
+        except ImportError as exc:
+            raise SystemExit(
+                "4-bit needs bitsandbytes. Run:\n"
+                "  pip install -U 'bitsandbytes>=0.46.1'\n"
+                "  Runtime → Restart session\n"
+                f"Original: {exc}"
+            ) from exc
         load_kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_compute_dtype=dtype,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
+    elif base_cfg.get("load_in_4bit", True) and not torch.cuda.is_available():
+        print("WARN: no CUDA — loading without 4-bit (will be slow / may OOM)")
 
     try:
         model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
     except TypeError:
-        load_kwargs.pop("torch_dtype", None)
-        load_kwargs["dtype"] = dtype
+        load_kwargs.pop("dtype", None)
+        load_kwargs["torch_dtype"] = dtype
         model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+    except ImportError as exc:
+        if "bitsandbytes" in str(exc).lower():
+            raise SystemExit(
+                "bitsandbytes too old or missing.\n"
+                "  pip install -U 'bitsandbytes>=0.46.1'\n"
+                "  then Runtime → Restart session"
+            ) from exc
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if "quantization" in msg or "mxfp4" in msg or "bitsandbytes" in msg:

@@ -1,8 +1,8 @@
-# Colab / GPU LoRA training (install THIS if HybridCache error)
+# Colab / GPU LoRA training
 transformers>=4.46.0,<4.52.0
 peft>=0.13.0,<0.16.0
 accelerate>=0.34.0,<2.0.0
-bitsandbytes>=0.43.0
+bitsandbytes>=0.46.1
 safetensors>=0.4.0
 datasets>=3.0.0
 pyyaml>=6.0
