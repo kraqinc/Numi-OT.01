@@ -1,9 +1,9 @@
 name: numi-lora-frontier
-version: "0.9.0"
+version: "0.9.1"
 
-# Strong open dense instruct (2025/26). Identity after SFT = Numi OT, not the vendor.
-# Needs ~20–24GB VRAM with 4-bit (RTX 4090 / A10 / L4 / A100).
-# Colab free T4 16GB: use lora_frontier_14b.yaml instead.
+# FULL SEND: Qwen2.5-32B-Instruct + LoRA 4-bit
+# Identity after SFT = Numi OT
+# VRAM: ~20–24GB ideal | Colab T4 16GB = try; OOM → use lora_frontier_14b.yaml
 base:
   model_id: "Qwen/Qwen2.5-32B-Instruct"
   trust_remote_code: true
@@ -45,7 +45,7 @@ data:
     - datasets/2026/numi_spanish_expert.jsonl
     - datasets/2026/numi_geo_culture.jsonl
     - datasets/2026/numi_math_code_extra.jsonl
-  max_seq_length: 2048
+  max_seq_length: 1536
   packing: false
 
 training:
