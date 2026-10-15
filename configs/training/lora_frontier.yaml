@@ -1,10 +1,11 @@
 name: numi-lora-frontier
-version: "0.8.5"
+version: "0.9.0"
 
-# Default base works with transformers 4.46–4.51 + peft (Colab).
-# Hunyuan-7B needs newer transformers (hunyuan_v1_dense) — see lora_frontier_hunyuan.yaml
+# Strong open dense instruct (2025/26). Identity after SFT = Numi OT, not the vendor.
+# Needs ~20–24GB VRAM with 4-bit (RTX 4090 / A10 / L4 / A100).
+# Colab free T4 16GB: use lora_frontier_14b.yaml instead.
 base:
-  model_id: "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+  model_id: "Qwen/Qwen2.5-32B-Instruct"
   trust_remote_code: true
   torch_dtype: bfloat16
   load_in_4bit: true
@@ -44,15 +45,15 @@ data:
     - datasets/2026/numi_spanish_expert.jsonl
     - datasets/2026/numi_geo_culture.jsonl
     - datasets/2026/numi_math_code_extra.jsonl
-  max_seq_length: 1536
+  max_seq_length: 2048
   packing: false
 
 training:
   output_dir: outputs/lora_frontier
-  num_epochs: 6
+  num_epochs: 3
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 16
-  learning_rate: 7.0e-5
+  learning_rate: 5.0e-5
   weight_decay: 0.01
   max_grad_norm: 1.0
   logging_steps: 5
