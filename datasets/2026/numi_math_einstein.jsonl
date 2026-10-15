@@ -1,0 +1,88 @@
+{"messages":[{"role":"user","content":"Explain why a^0 = 1 for a ≠ 0."},{"role":"assistant","content":"For integer exponents, a^m / a^n = a^(m-n). Set m=n: a^n/a^n=1=a^(n-n)=a^0. So a^0=1 (a≠0).\n**Answer: a^0=1**"}]}
+{"messages":[{"role":"user","content":"Solve x^2 - 5x + 6 = 0."},{"role":"assistant","content":"Factor: (x-2)(x-3)=0 → x=2 or x=3.\nCheck: 4-10+6=0, 9-15+6=0.\n**Answer: x=2, x=3**"}]}
+{"messages":[{"role":"user","content":"Quadratic formula for ax^2+bx+c=0."},{"role":"assistant","content":"x = [-b ± √(b²-4ac)] / (2a), a≠0.\nDiscriminant Δ=b²-4ac: Δ>0 two reals, Δ=0 one, Δ<0 complex."}]}
+{"messages":[{"role":"user","content":"Derivative of sin(x)."},{"role":"assistant","content":"d/dx sin(x) = cos(x)."}]}
+{"messages":[{"role":"user","content":"Derivative of e^x."},{"role":"assistant","content":"d/dx e^x = e^x."}]}
+{"messages":[{"role":"user","content":"Integral of 1/x dx."},{"role":"assistant","content":"∫(1/x) dx = ln|x| + C."}]}
+{"messages":[{"role":"user","content":"Chain rule in one line."},{"role":"assistant","content":"If y=f(g(x)), then dy/dx = f'(g(x))·g'(x)."}]}
+{"messages":[{"role":"user","content":"Product rule."},{"role":"assistant","content":"(uv)' = u'v + uv'."}]}
+{"messages":[{"role":"user","content":"What is a limit? Intuition."},{"role":"assistant","content":"The value f approaches as x approaches a, even if f(a) is undefined. Written lim_{x→a} f(x)."}]}
+{"messages":[{"role":"user","content":"lim x→0 of sin(x)/x."},{"role":"assistant","content":"Classic standard limit: 1."}]}
+{"messages":[{"role":"user","content":"Area of a circle."},{"role":"assistant","content":"A = πr²."}]}
+{"messages":[{"role":"user","content":"Circumference of a circle."},{"role":"assistant","content":"C = 2πr."}]}
+{"messages":[{"role":"user","content":"Pythagorean theorem."},{"role":"assistant","content":"In a right triangle, a²+b²=c² with c the hypotenuse."}]}
+{"messages":[{"role":"user","content":"Distance between (x1,y1) and (x2,y2)."},{"role":"assistant","content":"√[(x2-x1)²+(y2-y1)²]."}]}
+{"messages":[{"role":"user","content":"Slope of line through (1,2) and (3,6)."},{"role":"assistant","content":"m=(6-2)/(3-1)=4/2=2.\n**Answer: 2**"}]}
+{"messages":[{"role":"user","content":"What is a vector?"},{"role":"assistant","content":"An object with magnitude and direction; in R² often written ⟨x,y⟩."}]}
+{"messages":[{"role":"user","content":"Dot product of ⟨1,2⟩ and ⟨3,4⟩."},{"role":"assistant","content":"1·3+2·4=3+8=11.\n**Answer: 11**"}]}
+{"messages":[{"role":"user","content":"When are two vectors orthogonal?"},{"role":"assistant","content":"When their dot product is 0."}]}
+{"messages":[{"role":"user","content":"Probability of two independent coin heads."},{"role":"assistant","content":"(1/2)×(1/2)=1/4.\n**Answer: 1/4**"}]}
+{"messages":[{"role":"user","content":"Expected value of a fair six-sided die."},{"role":"assistant","content":"(1+2+3+4+5+6)/6 = 21/6 = 3.5.\n**Answer: 3.5**"}]}
+{"messages":[{"role":"user","content":"Bayes idea in one sentence."},{"role":"assistant","content":"Update prior probability of a hypothesis using the likelihood of new evidence: P(H|E)∝P(E|H)P(H)."}]}
+{"messages":[{"role":"user","content":"n! for n=5."},{"role":"assistant","content":"5!=5×4×3×2×1=120.\n**Answer: 120**"}]}
+{"messages":[{"role":"user","content":"Binomial coefficient C(5,2)."},{"role":"assistant","content":"C(5,2)=5!/(2!3!)=10.\n**Answer: 10**"}]}
+{"messages":[{"role":"user","content":"Sum of arithmetic series 1+2+...+n."},{"role":"assistant","content":"n(n+1)/2."}]}
+{"messages":[{"role":"user","content":"Sum of geometric series 1+r+r^2+...+r^(n-1), r≠1."},{"role":"assistant","content":"(1-r^n)/(1-r)."}]}
+{"messages":[{"role":"user","content":"log_b(xy) identity."},{"role":"assistant","content":"log_b(x)+log_b(y)."}]}
+{"messages":[{"role":"user","content":"log_b(x^k)."},{"role":"assistant","content":"k·log_b(x)."}]}
+{"messages":[{"role":"user","content":"Change of base: log_b a."},{"role":"assistant","content":"ln(a)/ln(b) or log(a)/log(b)."}]}
+{"messages":[{"role":"user","content":"Solve 2^x = 8."},{"role":"assistant","content":"8=2^3 so x=3.\n**Answer: 3**"}]}
+{"messages":[{"role":"user","content":"e approximately?"},{"role":"assistant","content":"≈ 2.71828… (base of natural logarithm)."}]}
+{"messages":[{"role":"user","content":"π approximately?"},{"role":"assistant","content":"≈ 3.14159…"}]}
+{"messages":[{"role":"user","content":"What is a prime number?"},{"role":"assistant","content":"Integer > 1 with no positive divisors other than 1 and itself."}]}
+{"messages":[{"role":"user","content":"Is 1 prime?"},{"role":"assistant","content":"No. Primes require exactly two distinct positive divisors."}]}
+{"messages":[{"role":"user","content":"GCD of 24 and 36."},{"role":"assistant","content":"Euclid: 36=1·24+12, 24=2·12+0 → gcd=12.\n**Answer: 12**"}]}
+{"messages":[{"role":"user","content":"LCM of 4 and 6."},{"role":"assistant","content":"lcm(a,b)=ab/gcd. gcd(4,6)=2 → 24/2=12.\n**Answer: 12**"}]}
+{"messages":[{"role":"user","content":"Modular: 17 mod 5."},{"role":"assistant","content":"17=3·5+2 → 2.\n**Answer: 2**"}]}
+{"messages":[{"role":"user","content":"Matrix 2x2 determinant [[a,b],[c,d]]."},{"role":"assistant","content":"ad-bc."}]}
+{"messages":[{"role":"user","content":"Identity matrix idea."},{"role":"assistant","content":"Square matrix with 1s on the diagonal and 0 elsewhere; AI=IA=A."}]}
+{"messages":[{"role":"user","content":"What is an eigenvalue (intuition)?"},{"role":"assistant","content":"Scalar λ such that Av=λv for some nonzero vector v (v is an eigenvector): A stretches v by λ."}]}
+{"messages":[{"role":"user","content":"Taylor idea for e^x at 0."},{"role":"assistant","content":"e^x = Σ x^n / n! for n=0..∞."}]}
+{"messages":[{"role":"user","content":"Mean vs median."},{"role":"assistant","content":"Mean: average. Median: middle value when sorted (robust to outliers)."}]}
+{"messages":[{"role":"user","content":"Variance intuition."},{"role":"assistant","content":"Average squared deviation from the mean; measures spread."}]}
+{"messages":[{"role":"user","content":"Normal distribution shape."},{"role":"assistant","content":"Symmetric bell curve, determined by mean μ and std σ."}]}
+{"messages":[{"role":"user","content":"Convert 45° to radians."},{"role":"assistant","content":"π/4 (because 180°=π rad).\n**Answer: π/4**"}]}
+{"messages":[{"role":"user","content":"sin(30°)."},{"role":"assistant","content":"1/2.\n**Answer: 1/2**"}]}
+{"messages":[{"role":"user","content":"cos(60°)."},{"role":"assistant","content":"1/2.\n**Answer: 1/2**"}]}
+{"messages":[{"role":"user","content":"tan(45°)."},{"role":"assistant","content":"1.\n**Answer: 1**"}]}
+{"messages":[{"role":"user","content":"Law of cosines."},{"role":"assistant","content":"c²=a²+b²-2ab cos(C)."}]}
+{"messages":[{"role":"user","content":"Percent: what is 12% of 250?"},{"role":"assistant","content":"0.12×250=30.\n**Answer: 30**"}]}
+{"messages":[{"role":"user","content":"If price rises 20% then falls 20%, net change?"},{"role":"assistant","content":"×1.2 then ×0.8 = ×0.96 → 4% net loss.\n**Answer: −4%**"}]}
+{"messages":[{"role":"user","content":"Solve system: x+y=5, x-y=1."},{"role":"assistant","content":"Add: 2x=6 → x=3. Then y=2.\n**Answer: x=3, y=2**"}]}
+{"messages":[{"role":"user","content":"What is infinity in limits, carefully?"},{"role":"assistant","content":"Not a real number; describes unbounded growth. lim=∞ means for any M the function eventually exceeds M."}]}
+{"messages":[{"role":"user","content":"Einstein E=mc^2 meaning in one line."},{"role":"assistant","content":"Rest energy equals mass times speed of light squared — mass-energy equivalence."}]}
+{"messages":[{"role":"user","content":"Dimensional check: energy units."},{"role":"assistant","content":"Joule = kg·m²/s². E=mc²: kg·(m/s)² matches."}]}
+{"messages":[{"role":"user","content":"Why divide by zero is undefined."},{"role":"assistant","content":"No real number x satisfies 0·x=1 (or a≠0). Limits may diverge to ±∞ depending on side."}]}
+{"messages":[{"role":"user","content":"Absolute value |−7|."},{"role":"assistant","content":"7.\n**Answer: 7**"}]}
+{"messages":[{"role":"user","content":"Floor of 3.7."},{"role":"assistant","content":"3.\n**Answer: 3**"}]}
+{"messages":[{"role":"user","content":"Ceiling of 3.2."},{"role":"assistant","content":"4.\n**Answer: 4**"}]}
+{"messages":[{"role":"user","content":"i^2 in complex numbers."},{"role":"assistant","content":"−1.\n**Answer: −1**"}]}
+{"messages":[{"role":"user","content":"Complex conjugate of 3+4i."},{"role":"assistant","content":"3−4i.\n**Answer: 3−4i**"}]}
+{"messages":[{"role":"user","content":"|3+4i|."},{"role":"assistant","content":"√(9+16)=5.\n**Answer: 5**"}]}
+{"messages":[{"role":"user","content":"Permutation P(5,2)."},{"role":"assistant","content":"5×4=20.\n**Answer: 20**"}]}
+{"messages":[{"role":"user","content":"Induction skeleton."},{"role":"assistant","content":"Prove base n=n0; assume true for k; prove k+1. Concludes for all integers ≥ n0."}]}
+{"messages":[{"role":"user","content":"Contradiction proof idea."},{"role":"assistant","content":"Assume the opposite of the claim; derive a falsehood; therefore the claim holds."}]}
+{"messages":[{"role":"user","content":"Convert 0.75 to fraction."},{"role":"assistant","content":"75/100=3/4.\n**Answer: 3/4**"}]}
+{"messages":[{"role":"user","content":"Scientific notation for 45000."},{"role":"assistant","content":"4.5×10^4.\n**Answer: 4.5×10^4**"}]}
+{"messages":[{"role":"user","content":"Order of magnitude of a billion."},{"role":"assistant","content":"10^9."}]}
+{"messages":[{"role":"user","content":"Work = force × distance (aligned). Units?"},{"role":"assistant","content":"Joule (N·m)."}]}
+{"messages":[{"role":"user","content":"Speed vs velocity."},{"role":"assistant","content":"Speed is scalar magnitude; velocity is vector (magnitude + direction)."}]}
+{"messages":[{"role":"user","content":"Average speed: 120 km in 2 h."},{"role":"assistant","content":"60 km/h.\n**Answer: 60 km/h**"}]}
+{"messages":[{"role":"user","content":"Solve 3^{x}=81."},{"role":"assistant","content":"81=3^4 → x=4.\n**Answer: 4**"}]}
+{"messages":[{"role":"user","content":"Inverse of f(x)=2x+3."},{"role":"assistant","content":"y=2x+3 → x=(y-3)/2 → f^{-1}(x)=(x-3)/2."}]}
+{"messages":[{"role":"user","content":"Domain of sqrt(x-2)."},{"role":"assistant","content":"x≥2."}]}
+{"messages":[{"role":"user","content":"Asymptote of y=1/x."},{"role":"assistant","content":"x=0 (vertical), y=0 (horizontal)."}]}
+{"messages":[{"role":"user","content":"Partial fractions idea for 1/(x(x+1))."},{"role":"assistant","content":"1/(x(x+1))=A/x+B/(x+1). Solve A(x+1)+Bx=1 → A=1,B=-1."}]}
+{"messages":[{"role":"user","content":"Gradient intuition (multivariable)."},{"role":"assistant","content":"Vector of partial derivatives; points to steepest ascent."}]}
+{"messages":[{"role":"user","content":"Laplacian intuition."},{"role":"assistant","content":"Divergence of the gradient; measures how a function differs from local average."}]}
+{"messages":[{"role":"user","content":"Fourier idea one sentence."},{"role":"assistant","content":"Represent functions as sums of sines/cosines (frequency components)."}]}
+{"messages":[{"role":"user","content":"P vs NP in one careful sentence."},{"role":"assistant","content":"P: decision problems solvable in polynomial time; NP: yes-instances verifiable in polynomial time; whether P=NP is open."}]}
+{"messages":[{"role":"user","content":"Calculate 17×23 with expansion."},{"role":"assistant","content":"(20-3)(20+3)=400-9=391.\n**Answer: 391**"}]}
+{"messages":[{"role":"user","content":"15% of 200."},{"role":"assistant","content":"30.\n**Answer: 30**"}]}
+{"messages":[{"role":"user","content":"Binary 1011 to decimal."},{"role":"assistant","content":"8+0+2+1=11.\n**Answer: 11**"}]}
+{"messages":[{"role":"user","content":"2^10."},{"role":"assistant","content":"1024.\n**Answer: 1024**"}]}
+{"messages":[{"role":"user","content":"Mean of 4,8,12."},{"role":"assistant","content":"8.\n**Answer: 8**"}]}
+{"messages":[{"role":"user","content":"Next in 2,6,12,20,30."},{"role":"assistant","content":"n(n+1): next 6×7=42.\n**Answer: 42**"}]}
+{"messages":[{"role":"user","content":"Rectangle 7 by 9 area."},{"role":"assistant","content":"63.\n**Answer: 63**"}]}
+{"messages":[{"role":"user","content":"80 with 25% off."},{"role":"assistant","content":"60.\n**Answer: 60**"}]}
+{"messages":[{"role":"user","content":"3x+7=22."},{"role":"assistant","content":"x=5.\n**Answer: 5**"}]}
