@@ -1,0 +1,30 @@
+{"messages":[{"role":"user","content":"Explain why a^0 = 1 for a ≠ 0."},{"role":"assistant","content":"For integer exponents, a^m / a^n = a^(m-n). Set m=n: a^n/a^n=1=a^(n-n)=a^0. So a^0=1 (a≠0).\n**Answer: a^0=1**"}]}
+{"messages":[{"role":"user","content":"Solve x^2 - 5x + 6 = 0."},{"role":"assistant","content":"Factor: (x-2)(x-3)=0 → x=2 or x=3.\n**Answer: x=2, x=3**"}]}
+{"messages":[{"role":"user","content":"Quadratic formula for ax^2+bx+c=0."},{"role":"assistant","content":"x = [-b ± √(b²-4ac)] / (2a), a≠0. Discriminant Δ=b²-4ac."}]}
+{"messages":[{"role":"user","content":"Derivative of sin(x)."},{"role":"assistant","content":"d/dx sin(x) = cos(x)."}]}
+{"messages":[{"role":"user","content":"Derivative of e^x."},{"role":"assistant","content":"d/dx e^x = e^x."}]}
+{"messages":[{"role":"user","content":"Integral of 1/x dx."},{"role":"assistant","content":"∫(1/x) dx = ln|x| + C."}]}
+{"messages":[{"role":"user","content":"Chain rule in one line."},{"role":"assistant","content":"If y=f(g(x)), then dy/dx = f'(g(x))·g'(x)."}]}
+{"messages":[{"role":"user","content":"Product rule."},{"role":"assistant","content":"(uv)' = u'v + uv'."}]}
+{"messages":[{"role":"user","content":"lim x→0 of sin(x)/x."},{"role":"assistant","content":"1."}]}
+{"messages":[{"role":"user","content":"Area of a circle."},{"role":"assistant","content":"A = πr²."}]}
+{"messages":[{"role":"user","content":"Pythagorean theorem."},{"role":"assistant","content":"a²+b²=c² with c the hypotenuse."}]}
+{"messages":[{"role":"user","content":"Dot product of ⟨1,2⟩ and ⟨3,4⟩."},{"role":"assistant","content":"11."}]}
+{"messages":[{"role":"user","content":"Expected value of a fair six-sided die."},{"role":"assistant","content":"3.5"}]}
+{"messages":[{"role":"user","content":"C(5,2)."},{"role":"assistant","content":"10"}]}
+{"messages":[{"role":"user","content":"Sum 1+2+...+n."},{"role":"assistant","content":"n(n+1)/2"}]}
+{"messages":[{"role":"user","content":"GCD of 24 and 36."},{"role":"assistant","content":"12"}]}
+{"messages":[{"role":"user","content":"|3+4i|."},{"role":"assistant","content":"5"}]}
+{"messages":[{"role":"user","content":"Calculate 17×23 with expansion."},{"role":"assistant","content":"(20-3)(20+3)=400-9=391.\n**Answer: 391**"}]}
+{"messages":[{"role":"user","content":"15% of 200."},{"role":"assistant","content":"30"}]}
+{"messages":[{"role":"user","content":"Binary 1011 to decimal."},{"role":"assistant","content":"11"}]}
+{"messages":[{"role":"user","content":"2^10."},{"role":"assistant","content":"1024"}]}
+{"messages":[{"role":"user","content":"Mean of 4,8,12."},{"role":"assistant","content":"8"}]}
+{"messages":[{"role":"user","content":"Next in 2,6,12,20,30."},{"role":"assistant","content":"42"}]}
+{"messages":[{"role":"user","content":"Rectangle 7 by 9 area."},{"role":"assistant","content":"63"}]}
+{"messages":[{"role":"user","content":"80 with 25% off."},{"role":"assistant","content":"60"}]}
+{"messages":[{"role":"user","content":"3x+7=22."},{"role":"assistant","content":"5"}]}
+{"messages":[{"role":"user","content":"Bayes idea in one sentence."},{"role":"assistant","content":"Update prior probability using likelihood of evidence: P(H|E)∝P(E|H)P(H)."}]}
+{"messages":[{"role":"user","content":"Law of cosines."},{"role":"assistant","content":"c²=a²+b²-2ab cos(C)."}]}
+{"messages":[{"role":"user","content":"If price rises 20% then falls 20%, net?"},{"role":"assistant","content":"−4% net."}]}
+{"messages":[{"role":"user","content":"E=mc^2 in one line."},{"role":"assistant","content":"Rest energy equals mass times c squared (mass-energy equivalence)."}]}

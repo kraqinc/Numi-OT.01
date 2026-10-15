@@ -1,7 +1,4 @@
-"""DEPRECATED — do not use for product traffic.
-
-Exam lookup was a lab shortcut. Real quality comes from SFT + base model.
-"""
+"""Deprecated module. Kept empty so old imports do not crash."""
 
 from __future__ import annotations
 
