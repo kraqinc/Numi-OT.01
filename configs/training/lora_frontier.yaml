@@ -1,7 +1,6 @@
 name: numi-lora-frontier
-version: "0.7.0"
+version: "0.7.1"
 
-# Real skills: math, code, Spanish, geo, culture — NO exam cheat sheet.
 base:
   model_id: "tencent/Hunyuan-7B-Instruct"
   trust_remote_code: true
@@ -33,6 +32,7 @@ data:
     - datasets/2026/numi_product_seed.jsonl
     - datasets/2026/numi_sft_quality.jsonl
     - datasets/2026/numi_sft_elite.jsonl
+    - datasets/2026/numi_assistant_quality.jsonl
     - datasets/2026/numi_math_expert.jsonl
     - datasets/2026/numi_code_expert.jsonl
     - datasets/2026/numi_spanish_expert.jsonl

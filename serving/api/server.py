@@ -8,7 +8,7 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -30,16 +30,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("numi.api")
 
 MODEL_ID = os.getenv("NUMI_MODEL_ID", "numi-ot-0.1")
-# peft = own SmolLM2+LoRA (independent). cloud = external OpenAI-compatible.
-# local = toy Numi MoE .pt
 BACKEND = os.getenv("NUMI_BACKEND", "peft").lower()
 CHECKPOINT = os.getenv("NUMI_CHECKPOINT")
 CONFIG_PATH = os.getenv("NUMI_CONFIG", "configs/training/sft.yaml")
 DEVICE = os.getenv("NUMI_DEVICE", "auto")
 HISTORY_TOKEN_BUDGET = int(os.getenv("NUMI_HISTORY_TOKENS", "6000"))
-PEFT_BASE = os.getenv("NUMI_PEFT_BASE", "HuggingFaceTB/SmolLM2-1.7B-Instruct")
+PEFT_BASE = os.getenv("NUMI_PEFT_BASE", "tencent/Hunyuan-7B-Instruct")
 PEFT_ADAPTER = os.getenv("NUMI_PEFT_ADAPTER", "outputs/lora_frontier/final")
 PEFT_4BIT = os.getenv("NUMI_PEFT_4BIT", "0") == "1"
+MAX_BODY_CHARS = int(os.getenv("NUMI_MAX_BODY_CHARS", "100000"))
 
 _engine: Any = None
 _engine_lock = threading.Lock()
@@ -47,22 +46,45 @@ _engine_error: str | None = None
 
 app = FastAPI(
     title="Numi-OT.01 API",
-    version="0.3.0",
+    version="0.7.0",
     description="OpenAI-compatible chat API for Numination (own model)",
 )
 
 _cors = os.getenv("NUMI_CORS_ORIGINS", "*")
 _origins = [o.strip() for o in _cors.split(",") if o.strip()]
+# Production: set explicit origins; * disables credentials
+if os.getenv("NUMI_ENV", "").lower() in {"production", "prod"} and _origins == ["*"]:
+    logger.warning("NUMI_CORS_ORIGINS=* in production — set explicit origins")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_credentials=_origins != ["*"],
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-Id"],
+    max_age=600,
 )
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(APIKeyMiddleware)
+
+
+@app.middleware("http")
+async def limit_body_size(request: Request, call_next):
+    cl = request.headers.get("content-length")
+    if cl is not None:
+        try:
+            if int(cl) > MAX_BODY_CHARS:
+                return JSONResponse413()
+        except ValueError:
+            pass
+    return await call_next(request)
+
+
+def JSONResponse413():
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse({"detail": "Request body too large"}, status_code=413)
 
 
 def get_engine() -> Any:
@@ -128,7 +150,6 @@ def live() -> dict[str, str]:
 
 @app.get("/ready")
 def ready() -> dict[str, object]:
-    """Readiness: engine must be loaded."""
     if _engine is not None:
         return {"status": "ready", "model": MODEL_ID, "backend": BACKEND}
     return {
@@ -261,6 +282,8 @@ def _stream_chat(request: ChatCompletionRequest):
 @app.post("/v1/chat")
 def chat_simple(request: ChatCompletionRequest) -> dict[str, object]:
     if request.stream:
-        raise HTTPException(status_code=400, detail="Use /v1/chat/completions for stream=true")
+        raise HTTPException(
+            status_code=400, detail="Use /v1/chat/completions for stream=true"
+        )
     response = chat_completions(request)
     return {"model": response.model, "response": response.choices[0].message.content}
