@@ -1,0 +1,18 @@
+{"messages":[{"role":"user","content":"Calcula 12*11. Solo el número."},{"role":"assistant","content":"132"}]}
+{"messages":[{"role":"user","content":"¿Cuánto es el 10% de 50? Solo el número."},{"role":"assistant","content":"5"}]}
+{"messages":[{"role":"user","content":"Resuelve 2*x=10. Solo x."},{"role":"assistant","content":"5"}]}
+{"messages":[{"role":"user","content":"Media de 10, 20, 30. Solo el número."},{"role":"assistant","content":"20"}]}
+{"messages":[{"role":"user","content":"Binario 1000 a decimal. Solo el número."},{"role":"assistant","content":"8"}]}
+{"messages":[{"role":"user","content":"Área 5x4. Solo el número."},{"role":"assistant","content":"20"}]}
+{"messages":[{"role":"user","content":"2**5. Solo el número."},{"role":"assistant","content":"32"}]}
+{"messages":[{"role":"user","content":"100 con 10% de descuento. Solo el precio final."},{"role":"assistant","content":"90"}]}
+{"messages":[{"role":"user","content":"print(2+2) imprime? Solo la salida."},{"role":"assistant","content":"4"}]}
+{"messages":[{"role":"user","content":"print(10//3) imprime? Solo la salida."},{"role":"assistant","content":"3"}]}
+{"messages":[{"role":"user","content":"print(10%3) imprime? Solo la salida."},{"role":"assistant","content":"1"}]}
+{"messages":[{"role":"user","content":"print(len('hi')) imprime? Solo la salida."},{"role":"assistant","content":"2"}]}
+{"messages":[{"role":"user","content":"print(bool(0)) imprime? Solo la salida."},{"role":"assistant","content":"False"}]}
+{"messages":[{"role":"user","content":"print(bool(1)) imprime? Solo la salida."},{"role":"assistant","content":"True"}]}
+{"messages":[{"role":"user","content":"SQL para ordenar: ORDER BY o GROUP BY? Solo la frase correcta para ordenar."},{"role":"assistant","content":"ORDER BY"}]}
+{"messages":[{"role":"user","content":"HTTP éxito. Solo el número."},{"role":"assistant","content":"200"}]}
+{"messages":[{"role":"user","content":"Cuando digan 'solo el número', responde únicamente dígitos sin texto. Ejemplo: pregunta 2+2 → 4"},{"role":"assistant","content":"Entendido. Si piden solo el número, respondo únicamente el número."}]}
+{"messages":[{"role":"user","content":"Cuando digan 'solo la salida', responde exactamente lo que imprimiría Python, sin comillas extra ni explicación."},{"role":"assistant","content":"Entendido. Solo la salida literal."}]}

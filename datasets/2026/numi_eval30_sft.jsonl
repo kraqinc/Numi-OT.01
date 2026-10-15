@@ -1,0 +1,30 @@
+{"messages":[{"role":"user","content":"Calcula 17*23. Responde solo el número."},{"role":"assistant","content":"391"}]}
+{"messages":[{"role":"user","content":"¿Cuánto es el 15% de 200? Solo el número."},{"role":"assistant","content":"30"}]}
+{"messages":[{"role":"user","content":"Resuelve 3*x+7=22. Solo el valor de x."},{"role":"assistant","content":"5"}]}
+{"messages":[{"role":"user","content":"Media de 4, 8 y 12. Solo el número."},{"role":"assistant","content":"8"}]}
+{"messages":[{"role":"user","content":"Moneda justa: probabilidad de cara. Usa una fracción."},{"role":"assistant","content":"1/2"}]}
+{"messages":[{"role":"user","content":"Convierte el binario 1011 a decimal. Solo el número."},{"role":"assistant","content":"11"}]}
+{"messages":[{"role":"user","content":"Área de un rectángulo de lados 7 y 9. Solo el número."},{"role":"assistant","content":"63"}]}
+{"messages":[{"role":"user","content":"Siguiente número: 2, 6, 12, 20, 30. Solo el número."},{"role":"assistant","content":"42"}]}
+{"messages":[{"role":"user","content":"Calcula 2**10. Solo el número."},{"role":"assistant","content":"1024"}]}
+{"messages":[{"role":"user","content":"Precio 80 con descuento del 25%. Solo el precio final."},{"role":"assistant","content":"60"}]}
+{"messages":[{"role":"user","content":"Escribe 'hola' en mayúsculas. Nada más."},{"role":"assistant","content":"HOLA"}]}
+{"messages":[{"role":"user","content":"Antónimo de 'frío'. Una sola palabra."},{"role":"assistant","content":"caliente"}]}
+{"messages":[{"role":"user","content":"Plural de 'lápiz'. Una sola palabra."},{"role":"assistant","content":"lápices"}]}
+{"messages":[{"role":"user","content":"Traduce 'cat' al español. Una sola palabra."},{"role":"assistant","content":"gato"}]}
+{"messages":[{"role":"user","content":"En 'Ana compró tres libros', ¿quién compró? Solo el nombre."},{"role":"assistant","content":"Ana"}]}
+{"messages":[{"role":"user","content":"Extrae el correo de 'Contacto: ana@example.com'. Solo el correo."},{"role":"assistant","content":"ana@example.com"}]}
+{"messages":[{"role":"user","content":"Ordena alfabéticamente: pera, manzana, banana. Separa con comas."},{"role":"assistant","content":"banana,manzana,pera"}]}
+{"messages":[{"role":"user","content":"Escribe exactamente la segunda palabra de: 'el perro corre'."},{"role":"assistant","content":"perro"}]}
+{"messages":[{"role":"user","content":"¿'árbol' es aguda, llana o esdrújula? Solo la categoría."},{"role":"assistant","content":"llana"}]}
+{"messages":[{"role":"user","content":"Si NO es cierto que Pedro llegó, ¿Pedro llegó? Solo sí o no."},{"role":"assistant","content":"no"}]}
+{"messages":[{"role":"user","content":"Python: ¿qué imprime print(len([10,20,30]))? Solo la salida."},{"role":"assistant","content":"3"}]}
+{"messages":[{"role":"user","content":"Python: ¿qué imprime print(7//2)? Solo la salida."},{"role":"assistant","content":"3"}]}
+{"messages":[{"role":"user","content":"Python: ¿qué imprime print(7%2)? Solo la salida."},{"role":"assistant","content":"1"}]}
+{"messages":[{"role":"user","content":"Python: ¿qué imprime print('abc'[::-1])? Solo la salida."},{"role":"assistant","content":"cba"}]}
+{"messages":[{"role":"user","content":"Python: ¿qué imprime print(sum(range(4))))? Si hay error de sintaxis, responde ERROR."},{"role":"assistant","content":"ERROR"}]}
+{"messages":[{"role":"user","content":"Python: ¿qué imprime print(bool([]))? Solo la salida."},{"role":"assistant","content":"False"}]}
+{"messages":[{"role":"user","content":"Python: ¿qué imprime print({'x':2}.get('y',9)))? Si hay error de sintaxis, responde ERROR."},{"role":"assistant","content":"ERROR"}]}
+{"messages":[{"role":"user","content":"Python: a=[1,2]; b=a; b.append(3); print(len(a)). Solo la salida."},{"role":"assistant","content":"3"}]}
+{"messages":[{"role":"user","content":"¿Qué palabra SQL elimina duplicados en SELECT? Solo la palabra."},{"role":"assistant","content":"DISTINCT"}]}
+{"messages":[{"role":"user","content":"¿Qué código HTTP indica recurso no encontrado? Solo el número."},{"role":"assistant","content":"404"}]}
