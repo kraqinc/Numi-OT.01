@@ -1,4 +1,4 @@
-"""Inference engine for PEFT LoRA adapters on a HF causal LM base."""
+"""Inference engine for PEFT LoRA + optional live knowledge (RAG)."""
 
 from __future__ import annotations
 
@@ -37,6 +37,29 @@ def _clean_completion(text: str) -> str:
     text = re.sub(r"([.!?…])\1+", r"\1", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+
+def _apply_rag(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    if os.getenv("NUMI_RAG", "1") == "0":
+        return messages
+    try:
+        from knowledge.retrieval.simple_rag import inject_context
+    except Exception:
+        return messages
+
+    out: list[dict[str, str]] = []
+    # Enrich only the last user turn
+    last_user = max(
+        (i for i, m in enumerate(messages) if m.get("role") == "user"),
+        default=-1,
+    )
+    for i, m in enumerate(messages):
+        if i == last_user:
+            content = inject_context(str(m.get("content", "")))
+            out.append({"role": "user", "content": content})
+        else:
+            out.append(m)
+    return out
 
 
 class BaseLoRAEngine:
@@ -130,6 +153,7 @@ class BaseLoRAEngine:
         no_repeat_ngram_size: int = 4,
     ) -> GenerationResult:
         messages = ensure_system_message(messages, force_server_system=True)
+        messages = _apply_rag(messages)
 
         if hasattr(self.tokenizer, "apply_chat_template"):
             try:
