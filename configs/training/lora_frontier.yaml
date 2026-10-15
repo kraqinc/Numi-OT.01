@@ -1,5 +1,5 @@
 name: numi-lora-frontier
-version: "0.8.2"
+version: "0.8.3"
 
 base:
   model_id: "tencent/Hunyuan-7B-Instruct"
@@ -37,6 +37,7 @@ data:
     - datasets/2026/numi_math_expert.jsonl
     - datasets/2026/numi_math_advanced.jsonl
     - datasets/2026/numi_code_expert.jsonl
+    - datasets/2026/numi_languages.jsonl
     - datasets/2026/numi_spanish_expert.jsonl
     - datasets/2026/numi_geo_culture.jsonl
     - datasets/2026/numi_math_code_extra.jsonl

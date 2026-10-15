@@ -1,0 +1,62 @@
+{"messages":[{"role":"user","content":"What does JavaScript === do vs ==?"},{"role":"assistant","content":"=== is strict equality (no type coercion). == coerces types (e.g. 0 == '0' is true, 0 === '0' is false). Prefer ===."}]}
+{"messages":[{"role":"user","content":"TypeScript: type a function that returns a Promise of string."},{"role":"assistant","content":"```typescript\nasync function loadName(): Promise<string> {\n  return \"Numi\";\n}\n```"}]}
+{"messages":[{"role":"user","content":"Java: print to console."},{"role":"assistant","content":"```java\nSystem.out.println(\"hello\");\n```"}]}
+{"messages":[{"role":"user","content":"Java: main signature."},{"role":"assistant","content":"```java\npublic static void main(String[] args) { }\n```"}]}
+{"messages":[{"role":"user","content":"C: hello world."},{"role":"assistant","content":"```c\n#include <stdio.h>\nint main(void) {\n  printf(\"hello\\n\");\n  return 0;\n}\n```"}]}
+{"messages":[{"role":"user","content":"C++: hello world."},{"role":"assistant","content":"```cpp\n#include <iostream>\nint main() {\n  std::cout << \"hello\\n\";\n}\n```"}]}
+{"messages":[{"role":"user","content":"C#: hello world."},{"role":"assistant","content":"```csharp\nConsole.WriteLine(\"hello\");\n```"}]}
+{"messages":[{"role":"user","content":"Go: hello world."},{"role":"assistant","content":"```go\npackage main\nimport \"fmt\"\nfunc main() {\n  fmt.Println(\"hello\")\n}\n```"}]}
+{"messages":[{"role":"user","content":"Rust: hello world."},{"role":"assistant","content":"```rust\nfn main() {\n  println!(\"hello\");\n}\n```"}]}
+{"messages":[{"role":"user","content":"Rust: what is ownership in one sentence?"},{"role":"assistant","content":"Each value has one owner; when the owner goes out of scope, the value is dropped — preventing most use-after-free without a GC."}]}
+{"messages":[{"role":"user","content":"Ruby: print hello."},{"role":"assistant","content":"```ruby\nputs \"hello\"\n```"}]}
+{"messages":[{"role":"user","content":"PHP: echo hello."},{"role":"assistant","content":"```php\n<?php\necho \"hello\";\n```"}]}
+{"messages":[{"role":"user","content":"Swift: print hello."},{"role":"assistant","content":"```swift\nprint(\"hello\")\n```"}]}
+{"messages":[{"role":"user","content":"Kotlin: print hello."},{"role":"assistant","content":"```kotlin\nprintln(\"hello\")\n```"}]}
+{"messages":[{"role":"user","content":"Kotlin vs Java null safety one line."},{"role":"assistant","content":"Kotlin distinguishes nullable T? from non-null T; Java does not, so NPEs are more common without annotations."}]}
+{"messages":[{"role":"user","content":"SQL: select all columns from users."},{"role":"assistant","content":"```sql\nSELECT * FROM users;\n```"}]}
+{"messages":[{"role":"user","content":"SQL: filter where age >= 18."},{"role":"assistant","content":"```sql\nSELECT * FROM users WHERE age >= 18;\n```"}]}
+{"messages":[{"role":"user","content":"SQL: INNER JOIN idea."},{"role":"assistant","content":"Returns rows that match in both tables on the join condition."}]}
+{"messages":[{"role":"user","content":"SQL: prevent injection."},{"role":"assistant","content":"Use parameterized queries / bind variables — never concatenate user input into SQL strings."}]}
+{"messages":[{"role":"user","content":"Bash: list files."},{"role":"assistant","content":"```bash\nls -la\n```"}]}
+{"messages":[{"role":"user","content":"Bash: exit code of last command."},{"role":"assistant","content":"`$?` — 0 usually means success."}]}
+{"messages":[{"role":"user","content":"HTML: minimal page."},{"role":"assistant","content":"```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head><meta charset=\"utf-8\"><title>Numi</title></head>\n<body><p>hello</p></body>\n</html>\n```"}]}
+{"messages":[{"role":"user","content":"CSS: center with flexbox."},{"role":"assistant","content":"```css\n.container {\n  display: flex;\n  justify-content: center;\n  align-items: center;\n}\n```"}]}
+{"messages":[{"role":"user","content":"JavaScript: array map example."},{"role":"assistant","content":"```js\nconst doubled = [1, 2, 3].map(n => n * 2); // [2, 4, 6]\n```"}]}
+{"messages":[{"role":"user","content":"JavaScript: optional chaining."},{"role":"assistant","content":"`user?.profile?.name` returns undefined if any link is nullish instead of throwing."}]}
+{"messages":[{"role":"user","content":"Python: list comprehension."},{"role":"assistant","content":"```python\nsquares = [x * x for x in range(5)]\n```"}]}
+{"messages":[{"role":"user","content":"Python vs JS: dict vs object."},{"role":"assistant","content":"Python dict keys are hashable objects; JS objects use string/symbol keys (Map is closer to arbitrary keys)."}]}
+{"messages":[{"role":"user","content":"Go: error handling style."},{"role":"assistant","content":"Functions return error as last value; check `if err != nil` explicitly — no exceptions by default."}]}
+{"messages":[{"role":"user","content":"Rust: Result type."},{"role":"assistant","content":"`Result<T, E>` is Ok(T) or Err(E). Use `?` to propagate errors."}]}
+{"messages":[{"role":"user","content":"Java: checked vs unchecked exceptions."},{"role":"assistant","content":"Checked must be declared or caught (IOException); unchecked are RuntimeException and errors."}]}
+{"messages":[{"role":"user","content":"C: what is a pointer?"},{"role":"assistant","content":"A variable that holds a memory address. `*p` dereferences; `&x` takes the address of x."}]}
+{"messages":[{"role":"user","content":"C++: RAII one line."},{"role":"assistant","content":"Resource lifetime is bound to object lifetime — constructors acquire, destructors release."}]}
+{"messages":[{"role":"user","content":"C#: async await return type."},{"role":"assistant","content":"`Task` or `Task<T>` (or ValueTask). `async Task<int> Foo()` returns a task producing int."}]}
+{"messages":[{"role":"user","content":"PHP: === vs ==."},{"role":"assistant","content":"Same idea as JS: === no coercion; == coerces. Prefer ===."}]}
+{"messages":[{"role":"user","content":"Swift: optional binding."},{"role":"assistant","content":"```swift\nif let name = optionalName {\n  print(name)\n}\n```"}]}
+{"messages":[{"role":"user","content":"Dart: hello (Flutter-related)."},{"role":"assistant","content":"```dart\nvoid main() {\n  print('hello');\n}\n```"}]}
+{"messages":[{"role":"user","content":"Dart: null safety."},{"role":"assistant","content":"Types are non-nullable by default; use `String?` for nullable."}]}
+{"messages":[{"role":"user","content":"R: print a vector."},{"role":"assistant","content":"```r\nprint(c(1, 2, 3))\n```"}]}
+{"messages":[{"role":"user","content":"Julia: 2+2."},{"role":"assistant","content":"```julia\n2 + 2  # 4\n```"}]}
+{"messages":[{"role":"user","content":"Scala: hello."},{"role":"assistant","content":"```scala\nprintln(\"hello\")\n```"}]}
+{"messages":[{"role":"user","content":"Haskell: pure function idea."},{"role":"assistant","content":"Same inputs always yield same outputs with no side effects; effects are tracked in types (e.g. IO)."}]}
+{"messages":[{"role":"user","content":"Lua: print."},{"role":"assistant","content":"```lua\nprint(\"hello\")\n```"}]}
+{"messages":[{"role":"user","content":"Assembly idea (high level)."},{"role":"assistant","content":"CPU instructions (mov, add, jmp) operating on registers and memory — what compilers target."}]}
+{"messages":[{"role":"user","content":"JSON: valid object with name and age."},{"role":"assistant","content":"```json\n{\"name\": \"Ana\", \"age\": 30}\n```"}]}
+{"messages":[{"role":"user","content":"YAML: key value."},{"role":"assistant","content":"```yaml\nname: Ana\nage: 30\n```"}]}
+{"messages":[{"role":"user","content":"Regex: digits only."},{"role":"assistant","content":"`^[0-9]+$` or `^\\d+$`"}]}
+{"messages":[{"role":"user","content":"Git: create branch."},{"role":"assistant","content":"```bash\ngit checkout -b feature/name\n# or: git switch -c feature/name\n```"}]}
+{"messages":[{"role":"user","content":"Docker: run hello world."},{"role":"assistant","content":"```bash\ndocker run hello-world\n```"}]}
+{"messages":[{"role":"user","content":"HTTP GET vs POST."},{"role":"assistant","content":"GET retrieves (safe/idempotent by convention). POST submits body data; not idempotent by default."}]}
+{"messages":[{"role":"user","content":"When to use Rust vs Go."},{"role":"assistant","content":"Rust: max control and safety without GC, steeper learning. Go: fast compile, simple concurrency (goroutines), GC, great for services."}]}
+{"messages":[{"role":"user","content":"When to use TypeScript over JS."},{"role":"assistant","content":"Larger codebases, clearer APIs, catch type errors before runtime — at the cost of build step and annotations."}]}
+{"messages":[{"role":"user","content":"SQL DISTINCT vs GROUP BY."},{"role":"assistant","content":"DISTINCT deduplicates result rows. GROUP BY aggregates per group (COUNT, SUM, …)."}]}
+{"messages":[{"role":"user","content":"Write a JS function isEven."},{"role":"assistant","content":"```js\nfunction isEven(n) {\n  return n % 2 === 0;\n}\n```"}]}
+{"messages":[{"role":"user","content":"Write a Java method isEven."},{"role":"assistant","content":"```java\nstatic boolean isEven(int n) {\n  return n % 2 == 0;\n}\n```"}]}
+{"messages":[{"role":"user","content":"Write a Go function isEven."},{"role":"assistant","content":"```go\nfunc isEven(n int) bool {\n  return n%2 == 0\n}\n```"}]}
+{"messages":[{"role":"user","content":"Write a Rust function is_even."},{"role":"assistant","content":"```rust\nfn is_even(n: i32) -> bool {\n  n % 2 == 0\n}\n```"}]}
+{"messages":[{"role":"user","content":"Write a C function is_even."},{"role":"assistant","content":"```c\nint is_even(int n) {\n  return n % 2 == 0;\n}\n```"}]}
+{"messages":[{"role":"user","content":"Flutter/Dart: StatelessWidget skeleton."},{"role":"assistant","content":"```dart\nclass Hello extends StatelessWidget {\n  const Hello({super.key});\n  @override\n  Widget build(BuildContext context) => const Text('hello');\n}\n```"}]}
+{"messages":[{"role":"user","content":"React: functional component."},{"role":"assistant","content":"```jsx\nexport function Hello() {\n  return <p>hello</p>;\n}\n```"}]}
+{"messages":[{"role":"user","content":"Node: read env PORT."},{"role":"assistant","content":"```js\nconst port = process.env.PORT || 3000;\n```"}]}
+{"messages":[{"role":"user","content":"Compare list, tuple, set in Python briefly."},{"role":"assistant","content":"list: ordered mutable. tuple: ordered immutable. set: unordered unique hashables."}]}
+{"messages":[{"role":"user","content":"What language is best?"},{"role":"assistant","content":"None universally. Match constraints: team, runtime, latency, ecosystem, safety. Numination mobile is Dart/Flutter; API often TS/Python/Go."}]}
