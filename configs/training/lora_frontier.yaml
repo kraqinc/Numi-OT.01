@@ -1,9 +1,7 @@
 name: numi-lora-frontier
-version: "0.9.1"
+version: "0.9.2"
 
-# FULL SEND: Qwen2.5-32B-Instruct + LoRA 4-bit
-# Identity after SFT = Numi OT
-# VRAM: ~20–24GB ideal | Colab T4 16GB = try; OOM → use lora_frontier_14b.yaml
+# 32B + pack 1000 preguntas (10 temas × 100)
 base:
   model_id: "Qwen/Qwen2.5-32B-Instruct"
   trust_remote_code: true
@@ -28,6 +26,7 @@ lora:
 
 data:
   paths:
+    - datasets/2026/numi_sft_1000.jsonl
     - datasets/2026/numi_identity_seed.jsonl
     - datasets/2026/numi_conversation_seed.jsonl
     - datasets/2026/numi_code_seed.jsonl
