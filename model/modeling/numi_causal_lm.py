@@ -106,13 +106,25 @@ class NumiModel(NumiPreTrainedModel):
             past = past_key_values[i] if past_key_values is not None else None
 
             if self.gradient_checkpointing and self.training:
+                # TransformerBlock.forward is keyword-only for everything after hidden_states.
+                # Wrap so checkpoint only receives one positional argument.
+                def _checkpoint_layer(
+                    hs: Tensor,
+                    attn_mask: Tensor | None = attention_mask,
+                    pos_off: int = position_offset,
+                    layer_mod: nn.Module = layer,
+                ) -> tuple[Tensor, KVCache | None]:
+                    return layer_mod(
+                        hs,
+                        attention_mask=attn_mask,
+                        past_key_value=None,
+                        use_cache=False,
+                        position_offset=pos_off,
+                    )
+
                 hidden_states, _ = torch.utils.checkpoint.checkpoint(
-                    layer,
+                    _checkpoint_layer,
                     hidden_states,
-                    attention_mask,
-                    None,
-                    False,
-                    position_offset,
                     use_reentrant=False,
                 )
             else:
