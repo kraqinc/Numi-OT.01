@@ -152,8 +152,10 @@ def train(config: dict[str, Any]) -> Path:
         ),
     )
 
-    model = build_model(config).to(device)
+    # Apply LoRA *before* moving to device so adapter params land on the same device
+    model = build_model(config)
     use_lora = _maybe_apply_lora(model, config)
+    model = model.to(device)
 
     if config["training"].get("gradient_checkpointing", False):
         enable_gradient_checkpointing(model)
