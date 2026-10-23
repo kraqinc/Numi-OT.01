@@ -1,5 +1,5 @@
 name: numi-sft-colab-t4
-version: "0.1.0"
+version: "0.1.1"
 description: "Numi from-scratch SFT optimizado para Tesla T4 (15GB). Arquitectura original."
 
 model:
@@ -20,9 +20,9 @@ model:
   initializer_range: 0.02
 
 data:
-  paths:
+  path: datasets/2026/numi_conversation_seed.jsonl
+  extra_paths:
     - datasets/2026/numi_identity_seed.jsonl
-    - datasets/2026/numi_conversation_seed.jsonl
     - datasets/2026/numi_code_seed.jsonl
     - datasets/2026/numi_multiturn_seed.jsonl
     - datasets/2026/numi_product_seed.jsonl
@@ -47,7 +47,7 @@ lora:
 training:
   output_dir: outputs/sft_colab_t4
   num_epochs: 3
-  per_device_train_batch_size: 1
+  batch_size: 1
   gradient_accumulation_steps: 16
   learning_rate: 2.0e-4
   weight_decay: 0.01
@@ -58,3 +58,4 @@ training:
   bf16: true
   gradient_checkpointing: true
   seed: 42
+  device: cuda
