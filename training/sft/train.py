@@ -105,6 +105,17 @@ def _data_paths(cfg: dict[str, Any]) -> list[str | Path]:
     return [primary, *extra]
 
 
+def _resolve_tokenizer_path(cfg: dict[str, Any]) -> str | None:
+    """Prefer explicit path, then artifacts/tokenizer if trained BPE exists."""
+    explicit = cfg["data"].get("tokenizer_path")
+    if explicit:
+        return explicit
+    default = Path("artifacts/tokenizer")
+    if (default / "tokenizer.json").exists():
+        return str(default)
+    return None
+
+
 def _maybe_apply_lora(model: NumiForCausalLM, cfg: dict[str, Any]) -> bool:
     lora_cfg = cfg.get("lora") or {}
     if not lora_cfg.get("enabled", False):
@@ -136,12 +147,19 @@ def train(config: dict[str, Any]) -> Path:
         max_length=config["data"]["max_seq_length"],
     )
 
+    tok_path = _resolve_tokenizer_path(config)
     tokenizer = load_tokenizer(
-        config["data"].get("tokenizer_path"),
+        tok_path,
         vocab_size=config["model"]["vocab_size"],
     )
+    # Always align model embedding size to the tokenizer actually used
     if tokenizer.vocab_size != config["model"]["vocab_size"]:
-        config["model"]["vocab_size"] = tokenizer.vocab_size
+        print(
+            f"Aligning model vocab_size {config['model']['vocab_size']} "
+            f"→ tokenizer {tokenizer.vocab_size}"
+        )
+        config["model"]["vocab_size"] = int(tokenizer.vocab_size)
+    print(f"Tokenizer: {type(tokenizer).__name__} | path={tok_path!r} | vocab={tokenizer.vocab_size}")
 
     loader = DataLoader(
         dataset,
@@ -156,6 +174,10 @@ def train(config: dict[str, Any]) -> Path:
     model = build_model(config)
     use_lora = _maybe_apply_lora(model, config)
     model = model.to(device)
+
+    use_bf16 = bool(config["training"].get("bf16", False)) and device.type == "cuda"
+    if use_bf16:
+        print("bf16 autocast enabled")
 
     if config["training"].get("gradient_checkpointing", False):
         enable_gradient_checkpointing(model)
@@ -180,7 +202,7 @@ def train(config: dict[str, Any]) -> Path:
         math.ceil(len(loader) / config["training"]["gradient_accumulation_steps"])
         * config["training"]["num_epochs"]
     )
-    warmup_steps = max(1, int(total_steps * config["training"]["warmup_ratio"]))
+    warmup_steps = max(1, int(total_steps * config["training"].get("warmup_ratio", 0.03)))
 
     def lr_at(step: int) -> float:
         if step < warmup_steps:
@@ -198,8 +220,9 @@ def train(config: dict[str, Any]) -> Path:
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
 
-            outputs = model(input_ids=input_ids, labels=labels)
-            loss = outputs.loss
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                outputs = model(input_ids=input_ids, labels=labels)
+                loss = outputs.loss
             assert loss is not None
             loss = loss / config["training"]["gradient_accumulation_steps"]
             loss.backward()
@@ -229,7 +252,7 @@ def train(config: dict[str, Any]) -> Path:
                         step=global_step,
                         optimizer=optimizer,
                         lora_only=use_lora,
-                        extra={"tokenizer_path": config["data"].get("tokenizer_path")},
+                        extra={"tokenizer_path": tok_path},
                     )
                     print(f"Saved {ckpt}")
 
@@ -241,7 +264,7 @@ def train(config: dict[str, Any]) -> Path:
         step=global_step,
         optimizer=optimizer,
         lora_only=use_lora,
-        extra={"tokenizer_path": config["data"].get("tokenizer_path")},
+        extra={"tokenizer_path": tok_path},
     )
     print(f"Training complete → {final_path}")
     return final_path
