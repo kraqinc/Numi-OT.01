@@ -1,9 +1,9 @@
 name: numi-sft-colab-t4
-version: "0.1.1"
-description: "Numi from-scratch SFT optimizado para Tesla T4 (15GB). Arquitectura original."
+version: "0.1.2"
+description: "Numi from-scratch SFT for Tesla T4. Own weights only. Requires artifacts/tokenizer (BPE)."
 
 model:
-  vocab_size: 128256
+  vocab_size: 4125
   hidden_size: 2048
   intermediate_size: 8192
   moe_intermediate_size: 1024
@@ -27,6 +27,7 @@ data:
     - datasets/2026/numi_multiturn_seed.jsonl
     - datasets/2026/numi_product_seed.jsonl
     - datasets/2026/numi_sft_quality.jsonl
+  tokenizer_path: artifacts/tokenizer
   max_seq_length: 1024
   packing: true
 

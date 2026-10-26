@@ -1,9 +1,9 @@
 name: numi-sft-colab-continue
-version: "0.1.2"
-description: "Continuar entrenamiento desde outputs/sft_colab_t4/final.pt con más datos y epochs. Arquitectura original."
+version: "0.1.3"
+description: "Continue from-scratch SFT with more data and epochs. Own weights + BPE only."
 
 model:
-  vocab_size: 128256
+  vocab_size: 4125
   hidden_size: 2048
   intermediate_size: 8192
   moe_intermediate_size: 1024
@@ -34,6 +34,7 @@ data:
     - datasets/2026/numi_persona_warm.jsonl
     - datasets/2026/numi_math_expert.jsonl
     - datasets/2026/numi_languages.jsonl
+  tokenizer_path: artifacts/tokenizer
   max_seq_length: 1024
   packing: true
 
@@ -53,12 +54,12 @@ lora:
 
 training:
   output_dir: outputs/sft_colab_continue
-  num_epochs: 8
+  num_epochs: 12
   batch_size: 1
   gradient_accumulation_steps: 16
-  learning_rate: 1.0e-4
+  learning_rate: 1.5e-4
   weight_decay: 0.01
-  warmup_ratio: 0.05
+  warmup_ratio: 0.03
   max_grad_norm: 1.0
   logging_steps: 5
   save_steps: 50
